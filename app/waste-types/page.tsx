@@ -17,8 +17,9 @@ const fontStyle = {
   fontFamily: 'var(--font-ibm-plex-sans-thai), IBM Plex Sans Thai, sans-serif',
 }
 
-const TAMBON_LIST_DATA = ['บางกะเจ้า', 'บางยอ', 'บางกอบัว', 'บางกระสอบ', 'บางน้ำผึ้ง', 'ทรงคนอง']
+const TAMBON_LIST_DATA = ['ทุกตำบล', 'บางกะเจ้า', 'บางยอ', 'บางกอบัว', 'บางกระสอบ', 'บางน้ำผึ้ง', 'ทรงคนอง']
 const MONTH_NAMES = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+const YEAR_OPTIONS = [2567, 2568, 2569, 2570]
 
 // Interface ปรับให้ตรงกับ Response จาก API Submission + Fallback
 interface WasteRecord {
@@ -42,43 +43,14 @@ interface WasteRecord {
   points_earned?: number
 }
 
-function CategoryIcon({ cat, size = 20 }: { cat: MainCategory; size?: number }) {
-  const stroke = WASTE_CATEGORIES.find(c => c.id === cat)?.color ?? '#154212'
-  if (cat === 'plastic') return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18" />
-    </svg>
-  )
-  if (cat === 'paper') return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14,2 14,8 20,8" />
-      <line x1="16" y1="13" x2="8" y2="13" />
-      <line x1="16" y1="17" x2="8" y2="17" />
-      <polyline points="10,9 9,9 8,9" />
-    </svg>
-  )
-  if (cat === 'glass') return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M8 2l-1 7H3l4 6v7h10v-7l4-6h-4L16 2H8z" />
-    </svg>
-  )
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <path d="M8 12h8M12 8v8" />
-    </svg>
-  )
-}
-
 export default function WasteTypesPage() {
   const router = useRouter()
   const { emailUser } = useAuth()
   const { isLiffReady, isLoggedIn: liffLoggedIn, profile: liffProfile, liffLogout } = useLiff()
 
-  const [tambon, setTambon] = useState('บางกะเจ้า')
+  const [tambon, setTambon] = useState('ทุกตำบล')
   const [activeCat, setActiveCat] = useState<MainCategory>('plastic')
-  const [year] = useState(2569)
+  const [year, setYear] = useState<number>(2569) // 🟢 State สำหรับเลือกปี
   const [profileOpen, setProfileOpen] = useState(false)
 
   const [rawRecords, setRawRecords] = useState<WasteRecord[]>([])
@@ -112,7 +84,7 @@ export default function WasteTypesPage() {
     }
   }, [isAuthenticated, fetchWasteRecords])
 
-  // ดึงตำบลของผู้ใช้จาก rawRecords โดยตรงโดยไม่ต้องยิง API ซ้ำ
+  // ดึงตำบลของผู้ใช้จาก rawRecords
   useEffect(() => {
     if (liffProfile?.userId && rawRecords.length > 0) {
       const userRecord = rawRecords.find(
@@ -128,7 +100,7 @@ export default function WasteTypesPage() {
     return WASTE_CATEGORIES.find(c => c.id === activeCat)!
   }, [activeCat])
 
-  // คำนวณยอดรวมจำแนกประเภทย่อย และ ยอดรวมแยกรายเดือน
+  // คำนวณยอดรวมจำแนกประเภทย่อย และ ยอดรวมแยกรายเดือน (รองรับการกรองตามปีที่เลือก)
   const { totals, monthlyMap } = useMemo(() => {
     const subtypeTotals: Record<string, number> = {}
     activeCatInfo.subtypes.forEach(s => { subtypeTotals[s.id] = 0 })
@@ -139,20 +111,27 @@ export default function WasteTypesPage() {
       activeCatInfo.subtypes.forEach(s => { monthlyDataMap[m][s.id] = 0 })
     }
 
-rawRecords.forEach(rec => {
+    rawRecords.forEach(rec => {
       const weight = Number(rec.weight ?? rec.weight_kg ?? 0)
 
-      // 🟢 1. เช็กกรณีเลือก 'ทุกตำบล' หรือ 'ทั้งหมด'
+      // 🟢 1. เช็กปี พ.ศ. ให้ตรงกับปีที่เลือก
+      const recDateStr = rec.date || rec.timestamp || ''
+      if (recDateStr) {
+        const recDate = new Date(recDateStr)
+        if (!isNaN(recDate.getTime())) {
+          const recYearBE = recDate.getFullYear() + 543 // แปลงเป็น พ.ศ.
+          if (recYearBE !== year) return // ถ้าปีไม่ตรง ข้ามรายการนี้ไป
+        }
+      }
+
+      // 🟢 2. เช็กกรณีเลือก 'ทุกตำบล' หรือ 'ทั้งหมด'
       const isAllTambon = !tambon || tambon === 'ทุกตำบล' || tambon === 'ทั้งหมด'
       let isTambonMatch = false
 
       if (isAllTambon) {
         isTambonMatch = true
       } else {
-        // 🟢 2. ดึงชื่อตำบลรองรับทุก Key (`subdistrict`, `subDistrict`, `tambon`)
         const sub = (rec.subdistrict || '').trim()
-
-        // 🟢 3. ป้องกัน Bug: รายการไม่มีชื่อตำบล ห้ามเอามารวมในตำบลเฉพาะ
         if (sub) {
           const cleanSub = sub.replace(/^ตำบล/, '').trim()
           const cleanTarget = tambon.replace(/^ตำบล/, '').trim()
@@ -162,16 +141,14 @@ rawRecords.forEach(rec => {
 
       const rawType = (rec.wasteType || rec.waste_type || '').toLowerCase()
       const rawSubType = rec.wasteSubType || rec.waste_subtype || ''
-      const recDateStr = rec.date || rec.timestamp || ''
 
-      // ตรวจสอบหมวดหมู่หลัก (รองรับทั้ง id ภาษาอังกฤษ และชื่อภาษาไทย)
+      // ตรวจสอบหมวดหมู่หลัก
       const isCatMatch =
         rawType === activeCat ||
         rawType.includes(activeCatInfo.id) ||
         rawType.includes(activeCatInfo.label.toLowerCase())
 
       if (isTambonMatch && isCatMatch && rawSubType) {
-        // แมปประเภทย่อยให้ตรงกับ subtype.id ในระบบ
         const matchedSubtype = activeCatInfo.subtypes.find(s =>
           s.id.toLowerCase() === rawSubType.toLowerCase() ||
           s.name.toLowerCase() === rawSubType.toLowerCase() ||
@@ -198,7 +175,7 @@ rawRecords.forEach(rec => {
     })
 
     return { totals: subtypeTotals, monthlyMap: monthlyDataMap }
-  }, [rawRecords, tambon, activeCat, activeCatInfo])
+  }, [rawRecords, tambon, activeCat, activeCatInfo, year])
 
   const chartData = useMemo(() => {
     return MONTH_NAMES.map((mName, idx) => {
@@ -255,11 +232,12 @@ rawRecords.forEach(rec => {
               {avatarUrl ? (
                 <Image src={avatarUrl} alt="profile" width={36} height={36} style={{ borderRadius: '50%', objectFit: 'cover' }} />
               ) : (
-                <div style={{
-                  width: 36, height: 36, borderRadius: '50%', backgroundColor: '#154212',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontSize: 15, fontWeight: 600, ...fontStyle, flexShrink: 0,
-                }}>
+            
+<div style={{
+  width: 36, height: 36, borderRadius: '50%', backgroundColor: '#154212',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  color: '#fff', fontSize: 15, fontWeight: 600, ...fontStyle, flexShrink: 0,
+}}>
                   {displayName ? displayName.charAt(0) : 'U'}
                 </div>
               )}
@@ -305,6 +283,7 @@ rawRecords.forEach(rec => {
             <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
               {TAMBON_LIST_DATA.map(t => {
                 const isSelected = tambon === t
+                const label = (t === 'ทุกตำบล' || t === 'ทั้งหมด') ? t : `ตำบล ${t}`
                 return (
                   <button
                     key={t}
@@ -322,14 +301,14 @@ rawRecords.forEach(rec => {
                       ...fontStyle,
                     }}
                   >
-                    ตำบล {t}
+                    {label}
                   </button>
                 )
               })}
             </div>
           </div>
 
-          {/* Main Category Tabs */}
+          {/* Main Category Tabs (🟢 เอา CategoryIcon ออก) */}
           <div className="flex" style={{ gap: 12, flexWrap: 'wrap' }}>
             {WASTE_CATEGORIES.map(cat => {
               const isActive = activeCat === cat.id
@@ -343,10 +322,8 @@ rawRecords.forEach(rec => {
                 <button
                   key={cat.id}
                   onClick={() => setActiveCat(cat.id as MainCategory)}
-                  className="flex items-center"
                   style={{
-                    gap: 10,
-                    padding: '10px 22px',
+                    padding: '10px 24px',
                     borderRadius: 10,
                     cursor: 'pointer',
                     border: `2px solid ${isActive ? themeColor : 'rgba(0,0,0,0.15)'}`,
@@ -359,15 +336,15 @@ rawRecords.forEach(rec => {
                     boxShadow: isActive ? '0 4px 12px rgba(0,0,0,0.1)' : 'none',
                   }}
                 >
-                  <CategoryIcon cat={cat.id as MainCategory} size={20} />
                   {cat.label}
                 </button>
               )
             })}
           </div>
 
-          {/* Sub-type Insight Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 16 }}>
+          {/* Sub-type Insight Cards & Total Card */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+            {/* การ์ดประเภทย่อยแต่ละประเภท */}
             {activeCatInfo.subtypes.map(sub => {
               const kg = totals[sub.id] ?? 0
               const pct = grandTotal > 0 ? Math.round((kg / grandTotal) * 100) : 0
@@ -439,6 +416,66 @@ rawRecords.forEach(rec => {
                 </div>
               )
             })}
+
+            {/* 🟢 การ์ดสรุปยอดรวมน้ำหนักของทุกประเภทย่อย (วางไว้ต่อท้าย) */}
+            <div
+              style={{
+                backgroundColor: '#154212',
+                color: '#ffffff',
+                border: '2px solid #154212',
+                borderRadius: 12,
+                padding: '18px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+                boxShadow: '0 4px 12px rgba(21, 66, 18, 0.15)',
+              }}
+            >
+              <div className="flex items-center" style={{ gap: 10 }}>
+                <div
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    backgroundColor: '#6fc060',
+                    flexShrink: 0,
+                  }}
+                />
+                <div>
+                  <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#ffffff', lineHeight: '22px', ...fontStyle }}>
+                    รวม {activeCatInfo.label} ทั้งหมด
+                  </p>
+                  <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 500, ...fontStyle }}>
+                    ยอดรวมทุกประเภทย่อย
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: 32, fontWeight: 700, color: '#ffffff', ...fontStyle }}>
+                  {grandTotal.toLocaleString()}
+                </span>
+                <span style={{ fontSize: 15, color: 'rgba(255,255,255,0.8)', fontWeight: 600, marginLeft: 6, ...fontStyle }}>
+                  กิโลกรัม
+                </span>
+              </div>
+
+              <div>
+                <div style={{ height: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4, overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      height: '100%',
+                      width: '100%',
+                      backgroundColor: '#6fc060',
+                      borderRadius: 4,
+                    }}
+                  />
+                </div>
+                <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 500, ...fontStyle }}>
+                  100% สรุปภาพรวมประเภท
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Bar Chart Container */}
@@ -450,22 +487,37 @@ rawRecords.forEach(rec => {
               padding: '24px 28px',
             }}
           >
-            <div className="flex items-center" style={{ gap: 12, marginBottom: 20 }}>
+            <div className="flex items-center justify-between" style={{ marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
               <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: '#154212', ...fontStyle }}>
-                รายงานน้ำหนักขยะจำแนกประเภทรายเดือน (ตำบล {tambon})
+                รายงานน้ำหนักขยะจำแนกประเภทรายเดือน ({(tambon === 'ทุกตำบล' || tambon === 'ทั้งหมด') ? 'ภาพรวมทุกตำบล' : `ตำบล ${tambon}`})
               </h2>
-              <span style={{
-                padding: '4px 14px',
-                borderRadius: 8,
-                fontSize: 14,
-                fontWeight: 600,
-                border: '2px solid #154212',
-                color: '#154212',
-                backgroundColor: 'rgba(21, 66, 18, 0.05)',
-                ...fontStyle,
-              }}>
-                ปี {year}
-              </span>
+
+              {/* 🟢 Dropdown สำหรับเลือกปี พ.ศ. */}
+              <div className="flex items-center" style={{ gap: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#154212', ...fontStyle }}>เลือกปี:</span>
+                <select
+                  value={year}
+                  onChange={(e) => setYear(Number(e.target.value))}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    border: '2px solid #154212',
+                    color: '#154212',
+                    backgroundColor: 'rgba(21, 66, 18, 0.05)',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    ...fontStyle,
+                  }}
+                >
+                  {YEAR_OPTIONS.map((y) => (
+                    <option key={y} value={y}>
+                      ปี พ.ศ. {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <ResponsiveContainer width="100%" height={380}>
