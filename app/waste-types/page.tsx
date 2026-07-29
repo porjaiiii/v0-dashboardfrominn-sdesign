@@ -20,17 +20,26 @@ const fontStyle = {
 const TAMBON_LIST_DATA = ['บางกะเจ้า', 'บางยอ', 'บางกอบัว', 'บางกระสอบ', 'บางน้ำผึ้ง', 'ทรงคนอง']
 const MONTH_NAMES = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
+// Interface ปรับให้ตรงกับ Response จาก API Submission + Fallback
 interface WasteRecord {
-  timestamp: string
-  user_id: string
-  waste_type: string
-  waste_subtype: string
-  weight_kg: number
-  image_urls: string[]
-  carbon_reduction: number
-  points_earned: number
-  status: string
+  id?: string
+  date?: string
+  timestamp?: string
+  lineUserId?: string
+  user_id?: string
+  userName?: string
   subdistrict?: string
+  isTourist?: boolean
+  wasteType?: string
+  waste_type?: string
+  wasteSubType?: string
+  waste_subtype?: string
+  weight?: number
+  weight_kg?: number
+  carbon?: number
+  carbon_reduction?: number
+  points?: number
+  points_earned?: number
 }
 
 function CategoryIcon({ cat, size = 20 }: { cat: MainCategory; size?: number }) {
@@ -81,26 +90,7 @@ export default function WasteTypesPage() {
     if (isLiffReady && !isAuthenticated) router.push('/login')
   }, [isLiffReady, isAuthenticated, router])
 
-  useEffect(() => {
-    async function fetchUserProfile() {
-      if (!liffProfile?.userId) return
-      try {
-        const res = await fetch(`/api/user/${liffProfile.userId}`)
-        if (res.ok) {
-          const data = await res.json()
-          if (data.subdistrict && TAMBON_LIST_DATA.includes(data.subdistrict)) {
-            setTambon(data.subdistrict)
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching user profile:', err)
-      }
-    }
-    if (liffLoggedIn && liffProfile?.userId) {
-      fetchUserProfile()
-    }
-  }, [liffLoggedIn, liffProfile])
-
+  // ดึงข้อมูลรายการขยะทั้งหมดจาก API ก้อนเดียว
   const fetchWasteRecords = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -122,10 +112,23 @@ export default function WasteTypesPage() {
     }
   }, [isAuthenticated, fetchWasteRecords])
 
+  // ดึงตำบลของผู้ใช้จาก rawRecords โดยตรงโดยไม่ต้องยิง API ซ้ำ
+  useEffect(() => {
+    if (liffProfile?.userId && rawRecords.length > 0) {
+      const userRecord = rawRecords.find(
+        (r) => (r.lineUserId || r.user_id) === liffProfile.userId
+      )
+      if (userRecord?.subdistrict && TAMBON_LIST_DATA.includes(userRecord.subdistrict)) {
+        setTambon(userRecord.subdistrict)
+      }
+    }
+  }, [liffProfile, rawRecords])
+
   const activeCatInfo = useMemo(() => {
     return WASTE_CATEGORIES.find(c => c.id === activeCat)!
   }, [activeCat])
 
+  // คำนวณยอดรวมจำแนกประเภทย่อย และ ยอดรวมแยกรายเดือน
   const { totals, monthlyMap } = useMemo(() => {
     const subtypeTotals: Record<string, number> = {}
     activeCatInfo.subtypes.forEach(s => { subtypeTotals[s.id] = 0 })
@@ -137,21 +140,44 @@ export default function WasteTypesPage() {
     }
 
     rawRecords.forEach(rec => {
-      const weight = Number(rec.weight_kg || 0)
+      const weight = Number(rec.weight ?? rec.weight_kg ?? 0)
       const recSub = (rec.subdistrict || '').trim().replace(/^ตำบล/, '')
       const currentTambon = tambon.trim().replace(/^ตำบล/, '')
+
+      const rawType = (rec.wasteType || rec.waste_type || '').toLowerCase()
+      const rawSubType = rec.wasteSubType || rec.waste_subtype || ''
+      const recDateStr = rec.date || rec.timestamp || ''
+
+      // ตรวจสอบตำบล
+      const isTambonMatch = recSub === currentTambon || recSub.includes(currentTambon) || currentTambon.includes(recSub)
       
-      if ((recSub === currentTambon || recSub.includes(currentTambon)) && rec.waste_type === activeCat && rec.waste_subtype) {
-        if (subtypeTotals[rec.waste_subtype] !== undefined) {
-          subtypeTotals[rec.waste_subtype] += weight
+      // ตรวจสอบหมวดหมู่หลัก (รองรับทั้ง id ภาษาอังกฤษ และชื่อภาษาไทย)
+      const isCatMatch =
+        rawType === activeCat ||
+        rawType.includes(activeCatInfo.id) ||
+        rawType.includes(activeCatInfo.label.toLowerCase())
+
+      if (isTambonMatch && isCatMatch && rawSubType) {
+        // แมปประเภทย่อยให้ตรงกับ subtype.id ในระบบ
+        const matchedSubtype = activeCatInfo.subtypes.find(s =>
+          s.id.toLowerCase() === rawSubType.toLowerCase() ||
+          s.name.toLowerCase() === rawSubType.toLowerCase() ||
+          rawSubType.toLowerCase().includes(s.id.toLowerCase()) ||
+          rawSubType.toLowerCase().includes(s.name.toLowerCase())
+        )
+
+        const subKey = matchedSubtype ? matchedSubtype.id : rawSubType
+
+        if (subtypeTotals[subKey] !== undefined) {
+          subtypeTotals[subKey] += weight
         }
 
-        if (rec.timestamp) {
-          const recDate = new Date(rec.timestamp)
+        if (recDateStr) {
+          const recDate = new Date(recDateStr)
           if (!isNaN(recDate.getTime())) {
             const monthIdx = recDate.getMonth()
-            if (monthlyDataMap[monthIdx]?.[rec.waste_subtype] !== undefined) {
-              monthlyDataMap[monthIdx][rec.waste_subtype] += weight
+            if (monthlyDataMap[monthIdx]?.[subKey] !== undefined) {
+              monthlyDataMap[monthIdx][subKey] += weight
             }
           }
         }
@@ -170,20 +196,6 @@ export default function WasteTypesPage() {
       return row
     })
   }, [monthlyMap, activeCatInfo])
-
-  const categoryGrandTotals = useMemo(() => {
-    const catTotals: Record<string, number> = { plastic: 0, paper: 0, glass: 0, other: 0 }
-    rawRecords.forEach(rec => {
-      const weight = Number(rec.weight_kg || 0)
-      const recSub = (rec.subdistrict || '').trim().replace(/^ตำบล/, '')
-      const currentTambon = tambon.trim().replace(/^ตำบล/, '')
-
-      if ((recSub === currentTambon || recSub.includes(currentTambon)) && rec.waste_type && catTotals[rec.waste_type] !== undefined) {
-        catTotals[rec.waste_type] += weight
-      }
-    })
-    return catTotals
-  }, [rawRecords, tambon])
 
   const grandTotal = Object.values(totals).reduce((a, b) => a + b, 0)
 
@@ -276,7 +288,7 @@ export default function WasteTypesPage() {
               )}
             </div>
 
-            {/* Tambon Pills (ปรับดีไซน์ให้เข้ากับ Theme) */}
+            {/* Tambon Pills */}
             <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
               {TAMBON_LIST_DATA.map(t => {
                 const isSelected = tambon === t
@@ -303,12 +315,12 @@ export default function WasteTypesPage() {
               })}
             </div>
           </div>
+
           {/* Main Category Tabs */}
           <div className="flex" style={{ gap: 12, flexWrap: 'wrap' }}>
             {WASTE_CATEGORIES.map(cat => {
               const isActive = activeCat === cat.id
 
-              // แมปสีประจำหมวดหมู่ขยะให้ตรงกับ StatCard
               const themeColor =
                 cat.id === 'plastic' ? '#6fc060' :
                 cat.id === 'glass' ? '#89b9ea' :
@@ -347,7 +359,6 @@ export default function WasteTypesPage() {
               const kg = totals[sub.id] ?? 0
               const pct = grandTotal > 0 ? Math.round((kg / grandTotal) * 100) : 0
 
-              // ดึงสีหลักตามหมวดหมู่ขยะที่เลือกอยู่
               const currentCatColor =
                 activeCat === 'plastic' ? '#6fc060' :
                 activeCat === 'glass' ? '#89b9ea' :
@@ -416,8 +427,6 @@ export default function WasteTypesPage() {
               )
             })}
           </div>
-
-         
 
           {/* Bar Chart Container */}
           <div
@@ -491,8 +500,6 @@ export default function WasteTypesPage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-
-         
 
         </main>
       </div>
