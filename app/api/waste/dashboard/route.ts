@@ -1,4 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+
+// ─── Environment Variables & Constants (ตรงกับระบบหลังบ้านทั้งหมด) ──────────────
+const POINTS_SPREADSHEET_ID = process.env.POINTS_SPREADSHEET_ID
+const SHEETS_API_KEY = process.env.GOOGLE_SHEETS_API_KEY
+
+// Registration spreadsheet (ดึงจาก env หรือใช้ Default ID ตัวเดียวกัน)
+const REG_SHEETS_ID = process.env.REGISTRATION_SHEETS_ID || '1vvBe_ZySfSq4oP8tfwHDUg-Jo3gBr9QanQWqLATAkNE'
+const REG_TAB = 'Registration'
+const TOURIST_USER_TYPE = 'นักท่องเที่ยว'
 
 export type WasteRecord = {
   id: string
@@ -8,8 +17,8 @@ export type WasteRecord = {
   subdistrict: string
   isTourist: boolean
   wasteType: string
-  weight: number // kg
-  carbon: number // kgCO2e
+  weight: number
+  carbon: number
   points: number
 }
 
@@ -20,66 +29,145 @@ export type WasteTypeSummary = {
   percentage: number
 }
 
-export type WasteDashboardResponse = {
-  summary: {
-    totalWeight: number
-    totalCarbon: number
-    totalRecords: number
+type UserInfo = {
+  name: string
+  avatar: string
+  location: string
+  isTourist: boolean
+}
+
+// ─── Helper Functions (ถอดแบบจากโค้ดอ้างอิง) ──────────────────────────────────
+
+// Exact match (lowercase)
+function colIndex(headers: string[], name: string): number {
+  const target = name.trim().toLowerCase()
+  return headers.findIndex((h) => String(h ?? '').trim().toLowerCase() === target)
+}
+
+// Tolerant match (ค้นหาคำย่อยภาษาไทย/อังกฤษ)
+function findCol(headers: string[], candidates: string[]): number {
+  const norm = (s: unknown) => String(s ?? '').trim().toLowerCase()
+  return headers.findIndex((h) => candidates.some((c) => norm(h).includes(norm(c))))
+}
+
+function toNumber(value: unknown): number {
+  const n = typeof value === 'number' ? value : parseFloat(String(value ?? ''))
+  return Number.isFinite(n) ? n : 0
+}
+
+function str(value: unknown): string {
+  return value == null ? '' : String(value).trim()
+}
+
+// อ่าน Tab ตรงจาก Google Sheets API v4
+async function readTab(sheetId: string, tab: string): Promise<string[][]> {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(
+    tab
+  )}?key=${SHEETS_API_KEY}`
+  const res = await fetch(url, { cache: 'no-store' })
+  if (!res.ok) throw new Error(`Sheets ${tab} read failed: ${res.status}`)
+  const json = await res.json()
+  return (json.values ?? []) as string[][]
+}
+
+// ดึงข้อมูลโปรไฟล์ (ชื่อ, ตำบล, ประเภทผู้ใช้) จากแผ่น Registration
+async function buildNameMap(): Promise<Record<string, UserInfo>> {
+  const map: Record<string, UserInfo> = {}
+  if (!REG_SHEETS_ID || !SHEETS_API_KEY) return map
+  try {
+    const rows = await readTab(REG_SHEETS_ID, REG_TAB)
+    if (rows.length <= 1) return map
+
+    const h = rows[0]
+    const idIdx   = findCol(h, ['line user id', 'lineuserid', 'line_user_id'])
+    const nickIdx = findCol(h, ['ชื่อเล่น', 'nickname'])
+    const fullIdx = findCol(h, ['ชื่อ-นามสกุล', 'fullname', 'full name'])
+    const locIdx  = findCol(h, ['ตำบล', 'subdistrict'])
+    const typeIdx = findCol(h, ['ประเภทผู้ใช้งาน', 'ประเภทผู้ใช้', 'usertype', 'user type', 'user_type'])
+    if (idIdx < 0) return map
+
+    for (const r of rows.slice(1)) {
+      const lid = str(r[idIdx])
+      if (!lid) continue
+      const nick = nickIdx >= 0 ? str(r[nickIdx]) : ''
+      const full = fullIdx >= 0 ? str(r[fullIdx]) : ''
+      const isTourist = typeIdx >= 0
+        ? str(r[typeIdx]) === TOURIST_USER_TYPE
+        : r.some((c) => str(c) === TOURIST_USER_TYPE)
+
+      map[lid] = {
+        name:     nick || full,
+        avatar:   '/placeholder.svg?height=40&width=40',
+        location: locIdx >= 0 ? str(r[locIdx]) : '',
+        isTourist,
+      }
+    }
+  } catch (error) {
+    console.error('[waste-dashboard] Registration read error:', error)
   }
-  typeBreakdown: WasteTypeSummary[]
-  records: WasteRecord[]
-  error?: string
+  return map
 }
 
-function parseCSV(text: string): string[][] {
-  return text.split('\n').map(line =>
-    line.split(',').map(cell => cell.trim().replace(/^"(.*)"$/, '$1'))
-  )
-}
+// ─── GET Handler ─────────────────────────────────────────────────────────────
 
-function normalizeHeader(h: string): string {
-  return (h ?? '').toLowerCase().trim().replace(/[₀₁₂₃₄₅₆₇₈₉]/g, (c) =>
-    String.fromCharCode(c.charCodeAt(0) - 0x2050)
-  )
-}
-
-function findColumnIndex(headers: string[], possibleNames: string[]): number {
-  return headers.findIndex(h =>
-    possibleNames.some(name => normalizeHeader(h).includes(name))
-  )
-}
-
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const callerUserId = searchParams.get('userId')?.trim() || ''
-
-  const sheetId = process.env.POINTS_SPREADSHEET_ID
-  const apiKey = process.env.GOOGLE_SHEETS_API_KEY
-
-  if (!sheetId || !apiKey) {
-    return NextResponse.json({ error: 'Server configuration missing' }, { status: 500 })
+export async function GET(request: NextRequest) {
+  if (!POINTS_SPREADSHEET_ID || !SHEETS_API_KEY) {
+    return NextResponse.json(
+      { error: 'Points sheet not configured (Missing POINTS_SPREADSHEET_ID or GOOGLE_SHEETS_API_KEY)' },
+      { status: 500 }
+    )
   }
 
   try {
-    // 1. ดึงข้อมูลจาก Tab "records" หรือ "waste" ผ่าน Google Sheets API v4
-    let apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/records?key=${apiKey}`
-    let recordsRes = await fetch(apiUrl, { cache: 'no-store' })
+    // 1. อ่านข้อมูลผู้ใช้ (NameMap) และประวัติขยะไปพร้อมกันแบบ Parallel
+    const nameMapPromise = buildNameMap()
 
-    // Fallback หาก tab ชื่อว่า waste หรือ sheet1
-    if (!recordsRes.ok) {
-      apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/waste?key=${apiKey}`
-      recordsRes = await fetch(apiUrl, { cache: 'no-store' })
+    // 2. ลองดึงข้อมูลรายการขยะจาก Tab ที่เป็นไปได้
+    let rows: string[][] = []
+    const possibleTabs = ['records', 'waste', 'transactions', 'points_transactions']
+
+    for (const tab of possibleTabs) {
+      try {
+        rows = await readTab(POINTS_SPREADSHEET_ID, tab)
+        if (rows.length > 1) break
+      } catch {
+        // ลอง Tab ถัดไป
+      }
     }
 
-    if (!recordsRes.ok) {
-      console.error('[waste-dashboard] Sheets API error:', recordsRes.status)
-      return NextResponse.json({ error: 'Failed to fetch waste records' }, { status: 500 })
-    }
+    const nameMap = await nameMapPromise
 
-    const json = await recordsRes.json()
-    const rows: string[][] = json.values ?? []
-
+    // 3. กรณีไม่มี Tab รายการขยะ ให้ Fallback ไปอ่านยอดรวมจาก points_account
     if (rows.length <= 1) {
+      try {
+        const accRows = await readTab(POINTS_SPREADSHEET_ID, 'points_account')
+        if (accRows.length > 1) {
+          const h = accRows[0]
+          const weightIdx = findCol(h, ['total_weight', 'weight', 'น้ำหนัก'])
+          const co2Idx    = findCol(h, ['total_co2', 'co2', 'คาร์บอน'])
+
+          let totalWeight = 0
+          let totalCo2 = 0
+
+          accRows.slice(1).forEach(r => {
+            totalWeight += toNumber(r[weightIdx])
+            totalCo2 += toNumber(r[co2Idx])
+          })
+
+          return NextResponse.json({
+            summary: {
+              totalWeight: Math.round(totalWeight * 100) / 100,
+              totalCarbon: Math.round(totalCo2 * 100) / 100,
+              totalRecords: accRows.length - 1,
+            },
+            typeBreakdown: [],
+            records: [],
+          })
+        }
+      } catch {
+        // ถ้าไม่มีข้อมูลเลย ให้ส่งค่า 0 กลับไป
+      }
+
       return NextResponse.json({
         summary: { totalWeight: 0, totalCarbon: 0, totalRecords: 0 },
         typeBreakdown: [],
@@ -87,88 +175,53 @@ export async function GET(request: Request) {
       })
     }
 
-    // 2. ค้นหา Index ของคอลัมน์แบบ Dynamic
-    const headers = rows[0]
-    let dateIdx   = findColumnIndex(headers, ['date', 'datetime', 'time', 'วัน', 'เวลา'])
-    let lineIdIdx = findColumnIndex(headers, ['line user id', 'lineuserid', 'line_user_id', 'userid'])
-    let typeIdx   = findColumnIndex(headers, ['type', 'wastetype', 'ประเภท', 'ชนิด', 'ขยะ'])
-    let weightIdx = findColumnIndex(headers, ['weight', 'kg', 'น้ำหนัก'])
-    let co2Idx    = findColumnIndex(headers, ['kgco2e', 'kgco2', 'co2e', 'co2', 'carbon'])
-    let pointsIdx = findColumnIndex(headers, ['points', 'point', 'คะแนน'])
+    // 4. แปลงข้อมูลจาก Tab รายการขยะ
+    const h = rows[0]
+    const dateIdx   = findCol(h, ['date', 'datetime', 'time', 'วัน', 'เวลา'])
+    const idIdx     = findCol(h, ['user_id', 'line user id', 'lineuserid', 'line_user_id'])
+    const typeIdx   = findCol(h, ['waste_type', 'type', 'wastetype', 'ประเภท', 'ชนิด', 'ขยะ'])
+    const weightIdx = findCol(h, ['weight', 'kg', 'น้ำหนัก', 'กิโลกรัม'])
+    const co2Idx    = findCol(h, ['co2', 'kgco2e', 'kgco2', 'co2e', 'carbon', 'คาร์บอน'])
+    const pointsIdx = findCol(h, ['points', 'point', 'คะแนน'])
 
-    // Positional Fallback
-    if (dateIdx < 0) dateIdx = 0
-    if (lineIdIdx < 0) lineIdIdx = 1
-    if (typeIdx < 0) typeIdx = 2
-    if (weightIdx < 0) weightIdx = 3
-    if (co2Idx < 0) co2Idx = 4
+    let totalWeight = 0
+    let totalCarbon = 0
+    const typeMap: Record<string, { weight: number; carbon: number }> = {}
 
-    // 3. ดึง Profile จาก Google Sheet CSV มาแมปข้อมูลชื่อ ตำบล และนักท่องเที่ยว
-    const profileMap: Record<string, { name: string; location: string; isTourist: boolean }> = {}
-    try {
-      const profileUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`
-      const profileRes = await fetch(profileUrl, { cache: 'no-store' })
-      if (profileRes.ok) {
-        const profileRows = parseCSV(await profileRes.text())
-        if (profileRows.length > 1) {
-          const ph = profileRows[0]
-          const pLineIdx = findColumnIndex(ph, ['line user id', 'lineuserid', 'line_user_id'])
-          const pNameIdx = findColumnIndex(ph, ['ชื่อ-นามสกุล', 'fullname', 'full name', 'ชื่อ'])
-          const pLocIdx  = findColumnIndex(ph, ['ตำบล', 'subdistrict', 'location'])
-          const pTypeIdx = findColumnIndex(ph, ['usertype', 'user_type', 'ประเภทผู้ใช้', 'นักท่องเที่ยว'])
-
-          profileRows.slice(1).forEach(row => {
-            const lid = pLineIdx >= 0 ? row[pLineIdx]?.trim() : ''
-            if (lid) {
-              const loc = pLocIdx >= 0 ? row[pLocIdx]?.trim() || '' : ''
-              const uType = pTypeIdx >= 0 ? row[pTypeIdx]?.trim() || '' : ''
-              profileMap[lid] = {
-                name: pNameIdx >= 0 ? row[pNameIdx]?.trim() || '' : '',
-                location: loc,
-                isTourist: uType.includes('นักท่องเที่ยว') || uType.toLowerCase().includes('tourist') || !loc,
-              }
-            }
-          })
-        }
-      }
-    } catch (e) {
-      console.warn('[waste-dashboard] Profile fetch warning:', e)
-    }
-
-    // 4. แปลงข้อมูล Waste Records ทั้งหมด
-    const records: WasteRecord[] = rows.slice(1)
-      .filter(r => r.some(cell => cell?.trim()))
+    const records: WasteRecord[] = rows
+      .slice(1)
+      .filter(r => r.some(c => str(c)))
       .map((row, idx) => {
-        const lid = row[lineIdIdx]?.trim() || ''
-        const prof = profileMap[lid]
+        const lid = idIdx >= 0 ? str(row[idIdx]) : ''
+        const userInfo = nameMap[lid]
+
+        const wasteType = typeIdx >= 0 ? str(row[typeIdx]) || 'ขยะทั่วไป' : 'ขยะทั่วไป'
+        const weight = weightIdx >= 0 ? toNumber(row[weightIdx]) : 0
+        const carbon = co2Idx >= 0 ? toNumber(row[co2Idx]) : 0
+        const points = pointsIdx >= 0 ? toNumber(row[pointsIdx]) : 0
+
+        totalWeight += weight
+        totalCarbon += carbon
+
+        if (!typeMap[wasteType]) typeMap[wasteType] = { weight: 0, carbon: 0 }
+        typeMap[wasteType].weight += weight
+        typeMap[wasteType].carbon += carbon
+
         return {
           id: `rec-${idx + 1}`,
-          date: row[dateIdx]?.trim() || new Date().toISOString().split('T')[0],
+          date: dateIdx >= 0 ? str(row[dateIdx]) || new Date().toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           lineUserId: lid,
-          userName: prof?.name || `ผู้ใช้ ${lid.slice(0, 5)}`,
-          subdistrict: prof?.location || 'ไม่ระบุ',
-          isTourist: prof?.isTourist ?? false,
-          wasteType: row[typeIdx]?.trim() || 'ขยะทั่วไป',
-          weight: parseFloat(row[weightIdx] ?? '0') || 0,
-          carbon: parseFloat(row[co2Idx] ?? '0') || 0,
-          points: parseFloat(row[pointsIdx] ?? '0') || 0,
+          userName: userInfo?.name || (lid ? `ผู้ใช้ ${lid.slice(0, 5)}` : `ผู้ใช้ ${idx + 1}`),
+          subdistrict: userInfo?.location || '',
+          isTourist: userInfo?.isTourist ?? false,
+          wasteType,
+          weight: Math.round(weight * 100) / 100,
+          carbon: Math.round(carbon * 100) / 100,
+          points: Math.round(points),
         }
       })
 
-    // 5. คำนวณยอดรวม (Summary)
-    const totalWeight = records.reduce((sum, r) => sum + r.weight, 0)
-    const totalCarbon = records.reduce((sum, r) => sum + r.carbon, 0)
-    const totalRecords = records.length
-
-    // 6. จัดกลุ่มสรุปประเภทขยะ (Waste Type Breakdown)
-    const typeMap: Record<string, { weight: number; carbon: number }> = {}
-    records.forEach(r => {
-      const t = r.wasteType || 'ขยะทั่วไป'
-      if (!typeMap[t]) typeMap[t] = { weight: 0, carbon: 0 }
-      typeMap[t].weight += r.weight
-      typeMap[t].carbon += r.carbon
-    })
-
+    // 5. สรุปแยกประเภทขยะ
     const typeBreakdown: WasteTypeSummary[] = Object.entries(typeMap).map(([type, val]) => ({
       type,
       weight: Math.round(val.weight * 100) / 100,
@@ -180,14 +233,14 @@ export async function GET(request: Request) {
       summary: {
         totalWeight: Math.round(totalWeight * 100) / 100,
         totalCarbon: Math.round(totalCarbon * 100) / 100,
-        totalRecords,
+        totalRecords: records.length,
       },
       typeBreakdown,
-      records: records.reverse(), // เอาอันล่าสุดขึ้นก่อน
+      records: records.reverse(),
     })
 
   } catch (error) {
     console.error('[waste-dashboard] Error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch waste dashboard data' }, { status: 500 })
   }
 }
