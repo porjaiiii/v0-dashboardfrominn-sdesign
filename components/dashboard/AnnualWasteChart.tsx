@@ -286,10 +286,14 @@ export default function AnnualWasteChart() {
                   domain={[0, 'auto']}
                   width={60}
                 />
-                <Tooltip
-                  formatter={(value: number) => [`${value.toLocaleString()} kg`, 'ขยะทั้งหมด']}
-                  contentStyle={{ fontFamily: 'IBM Plex Sans Thai, sans-serif' }}
-                />
+                {/* เปลี่ยนจาก (value: number) เป็น (value: any) */}
+<Tooltip
+  formatter={(value: any) => [
+    `${Number(value || 0).toLocaleString()} kg`,
+    'ขยะทั้งหมด',
+  ]}
+  contentStyle={{ fontFamily: 'IBM Plex Sans Thai, sans-serif' }}
+/>
                 <Line
                   type="monotone"
                   dataKey="total"
@@ -337,18 +341,21 @@ export default function AnnualWasteChart() {
                   domain={[0, 'auto']}
                   width={60}
                 />
-                <Tooltip
-                  formatter={(value: number, name: string) => {
-                    const labels: Record<string, string> = {
-                      plastic: 'พลาสติก',
-                      glass: 'แก้ว',
-                      paper: 'กระดาษ',
-                      aluminium: 'อลูมิเนียม',
-                    }
-                    return [`${value.toLocaleString()} kg`, labels[name] || name]
-                  }}
-                  contentStyle={{ fontFamily: 'IBM Plex Sans Thai, sans-serif' }}
-                />
+             {/* เปลี่ยนจาก (value: number, name: string) เป็น (value: any, name: any) */}
+<Tooltip
+  formatter={(value: any, name: any) => {
+    const labels: Record<string, string> = {
+      plastic: 'พลาสติก',
+      glass: 'แก้ว',
+      paper: 'กระดาษ',
+      aluminium: 'อลูมิเนียม',
+    }
+    const key = String(name || '')
+    const num = Number(value || 0)
+    return [`${num.toLocaleString()} kg`, labels[key] || key]
+  }}
+  contentStyle={{ fontFamily: 'IBM Plex Sans Thai, sans-serif' }}
+/>
                 <Line type="monotone" dataKey="plastic" stroke="#6fc060" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
                 <Line type="monotone" dataKey="glass" stroke="#89b9ea" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
                 <Line type="monotone" dataKey="paper" stroke="#c06060" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
@@ -360,5 +367,5 @@ export default function AnnualWasteChart() {
       )}
     </div>
   )
-  
+
 }
