@@ -8,6 +8,9 @@ const REG_SHEETS_ID = process.env.REGISTRATION_SHEETS_ID || '1vvBe_ZySfSq4oP8tfw
 const REG_TAB = 'Registration'
 const TOURIST_USER_TYPE = 'นักท่องเที่ยว'
 
+// Tab หลักสำหรับเก็บประวัติขยะ
+const PRIMARY_WASTE_TAB = 'co2_collection'
+
 export type WasteRecord = {
   id: string
   date: string
@@ -51,6 +54,7 @@ function str(value: unknown): string {
   return value == null ? '' : String(value).trim()
 }
 
+// อ่านข้อมูลแถวทั้งหมดจาก Sheet Tab
 async function readTab(sheetId: string, tab: string): Promise<string[][]> {
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(
     tab
@@ -61,7 +65,7 @@ async function readTab(sheetId: string, tab: string): Promise<string[][]> {
   return (json.values ?? []) as string[][]
 }
 
-// ดึงข้อมูลชื่อ / ตำบล / ประเภทผู้ใช้ จาก Registration Sheet
+// ดึงข้อมูลโปรไฟล์ผู้ใช้ (ชื่อ, ตำบล, นักท่องเที่ยว) จาก Registration Sheet
 async function buildNameMap(): Promise<Record<string, UserInfo>> {
   const map: Record<string, UserInfo> = {}
   if (!REG_SHEETS_ID || !SHEETS_API_KEY) return map
@@ -110,49 +114,49 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // โหลด Registration NameMap
-    const nameMapPromise = buildNameMap()
+    // 1. อ่านข้อมูลโปรไฟล์ผู้ใช้ และ Tab co2_collection ไปพร้อมๆ กัน (Parallel)
+    const [nameMap, wasteRowsResult] = await Promise.allSettled([
+      buildNameMap(),
+      readTab(POINTS_SPREADSHEET_ID, PRIMARY_WASTE_TAB),
+    ])
 
-    // ลิสต์ Tab ที่คาดว่าเก็บประวัติขยะ (เรียงลำดับความสำคัญ)
-    const possibleTabs = ['waste_records', 'waste', 'records', 'points_waste', 'Sheet1']
+    const userMap = nameMap.status === 'fulfilled' ? nameMap.value : {}
     let rows: string[][] = []
-    let foundTab = ''
+    let activeTabUsed = PRIMARY_WASTE_TAB
 
-    for (const tab of possibleTabs) {
-      try {
-        const tabRows = await readTab(POINTS_SPREADSHEET_ID, tab)
-        if (tabRows.length > 1) {
-          const h = tabRows[0]
-          // เช็คว่าใช่ Tab ที่มีคอลัมน์ waste_type หรือไม่
-          const hasWasteType = findCol(h, ['waste_type', 'wastetype']) >= 0
-          if (hasWasteType) {
-            rows = tabRows
-            foundTab = tab
+    if (wasteRowsResult.status === 'fulfilled') {
+      rows = wasteRowsResult.value
+    } else {
+      console.warn(`[waste-dashboard] Tab "${PRIMARY_WASTE_TAB}" read failed, trying fallbacks...`)
+      // Fallback เผื่อไว้เผื่อในอนาคตเปลี่ยนชื่อ
+      const fallbackTabs = ['waste_records', 'waste', 'records', 'Sheet1']
+      for (const tab of fallbackTabs) {
+        try {
+          const fbRows = await readTab(POINTS_SPREADSHEET_ID, tab)
+          if (fbRows.length > 1) {
+            rows = fbRows
+            activeTabUsed = tab
             break
-          } else if (rows.length === 0) {
-            rows = tabRows // เก็บไว้เป็นสำรองกรณีหา waste_type ไม่เจอ
-            foundTab = tab
           }
+        } catch {
+          // ลอง Tab ถัดไป
         }
-      } catch {
-        // ลอง Tab ถัดไป
       }
     }
-
-    const nameMap = await nameMapPromise
 
     if (rows.length <= 1) {
       return NextResponse.json({
         summary: { totalWeight: 0, totalCarbon: 0, totalRecords: 0 },
         typeBreakdown: [],
         records: [],
+        activeTab: activeTabUsed,
       })
     }
 
-    // แปลงข้อมูลตามหัวคอลัมน์จริงใน Sheet (user_id, waste_type, weight, co2, last_updated)
+    // 2. แปลงข้อมูลตามหัวคอลัมน์ของ co2_collection (user_id, waste_type, weight, co2, last_updated)
     const h = rows[0]
     const idIdx     = findCol(h, ['user_id', 'line_user_id', 'lineuserid'])
-    const typeIdx   = findCol(h, ['waste_type', 'type', 'wastetype', 'ประเภทขยะ', 'ชนิดขยะ'])
+    const typeIdx   = findCol(h, ['waste_type', 'wastetype', 'type', 'ประเภทขยะ', 'ชนิดขยะ'])
     const weightIdx = findCol(h, ['weight', 'kg', 'น้ำหนัก'])
     const co2Idx    = findCol(h, ['co2', 'kgco2', 'carbon', 'คาร์บอน'])
     const dateIdx   = findCol(h, ['last_updated', 'date', 'datetime', 'time', 'วันเวลา'])
@@ -163,10 +167,10 @@ export async function GET(request: NextRequest) {
 
     const records: WasteRecord[] = rows
       .slice(1)
-      .filter(r => r.some(c => str(c)))
+      .filter((r) => r.some((c) => str(c)))
       .map((row, idx) => {
         const lid = idIdx >= 0 ? str(row[idIdx]) : ''
-        const userInfo = nameMap[lid]
+        const userInfo = userMap[lid]
 
         const wasteType = typeIdx >= 0 ? str(row[typeIdx]) || 'ขยะทั่วไป' : 'ขยะทั่วไป'
         const weight = weightIdx >= 0 ? toNumber(row[weightIdx]) : 0
@@ -193,13 +197,15 @@ export async function GET(request: NextRequest) {
         }
       })
 
-    // สรุปยอดแยกประเภทขยะ ( plastic, paper, glass, aluminium ฯลฯ )
-    const typeBreakdown: WasteTypeSummary[] = Object.entries(typeMap).map(([type, val]) => ({
-      type,
-      weight: Math.round(val.weight * 100) / 100,
-      carbon: Math.round(val.carbon * 100) / 100,
-      percentage: totalWeight > 0 ? Math.round((val.weight / totalWeight) * 100) : 0,
-    })).sort((a, b) => b.weight - a.weight)
+    // 3. สรุปยอดแยกประเภทขยะ ( plastic, paper, glass, aluminium ฯลฯ )
+    const typeBreakdown: WasteTypeSummary[] = Object.entries(typeMap)
+      .map(([type, val]) => ({
+        type,
+        weight: Math.round(val.weight * 100) / 100,
+        carbon: Math.round(val.carbon * 100) / 100,
+        percentage: totalWeight > 0 ? Math.round((val.weight / totalWeight) * 100) : 0,
+      }))
+      .sort((a, b) => b.weight - a.weight)
 
     return NextResponse.json({
       summary: {
@@ -209,7 +215,7 @@ export async function GET(request: NextRequest) {
       },
       typeBreakdown,
       records: records.reverse(),
-      activeTab: foundTab,
+      activeTab: activeTabUsed,
     })
 
   } catch (error) {
