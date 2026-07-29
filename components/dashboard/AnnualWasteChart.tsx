@@ -360,4 +360,5 @@ export default function AnnualWasteChart() {
       )}
     </div>
   )
+  
 }
