@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 
 // ─── Environment Variables & Constants ──────────────────────────────────────
 const SHEETS_API_KEY = process.env.GOOGLE_SHEETS_API_KEY
-
-// ใช้ Sheet ID เดียวกันทั้ง Registration และ Submission
-const SUBMISSION_SHEET_ID = process.env.REGISTRATION_SHEETS_ID || '1vvBe_ZySfSq4oP8tfwHDUg-Jo3gBr9QanQWqLATAkNE'
+const SPREADSHEET_ID = process.env.REGISTRATION_SHEETS_ID || '1vvBe_ZySfSq4oP8tfwHDUg-Jo3gBr9QanQWqLATAkNE'
 
 const REG_TAB = 'Registration'
-const PRIMARY_SUBMISSION_TAB = 'Submission' // หน้า Submission
+const SUBMISSION_TAB = 'submission'
 const TOURIST_USER_TYPE = 'นักท่องเที่ยว'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -16,10 +14,10 @@ export type WasteRecord = {
   date: string
   lineUserId: string
   userName: string
-  subdistrict: string   // ตำบลที่ผูกมาจาก Registration
+  subdistrict: string   // ตำบลที่แมปมาจาก Registration
   isTourist: boolean
-  wasteType: string     // ประเภทหลัก (เช่น พลาสติก, กระดาษ)
-  wasteSubType: string  // ประเภทย่อย (เช่น ขวด PET, ลังกระดาษ)
+  wasteType: string     // ประเภทหลัก (เช่น พลาสติก)
+  wasteSubType: string  // ประเภทย่อย (เช่น ขวด PET)
   weight: number
   carbon: number
   points: number
@@ -35,7 +33,7 @@ export type WasteTypeSummary = {
 type UserInfo = {
   name: string
   avatar: string
-  location: string     // ตำบล
+  location: string
   isTourist: boolean
 }
 
@@ -66,12 +64,12 @@ async function readTab(sheetId: string, tab: string): Promise<string[][]> {
   return (json.values ?? []) as string[][]
 }
 
-// ดึงข้อมูลโปรไฟล์ผู้ใช้ (ชื่อ, ตำบล, นักท่องเที่ยว) จาก Registration Sheet
+// สร้าง Map จับคู่ lineUserId กับ ตำบล/ชื่อ จาก Registration Sheet
 async function buildNameMap(): Promise<Record<string, UserInfo>> {
   const map: Record<string, UserInfo> = {}
-  if (!SUBMISSION_SHEET_ID || !SHEETS_API_KEY) return map
+  if (!SPREADSHEET_ID || !SHEETS_API_KEY) return map
   try {
-    const rows = await readTab(SUBMISSION_SHEET_ID, REG_TAB)
+    const rows = await readTab(SPREADSHEET_ID, REG_TAB)
     if (rows.length <= 1) return map
 
     const h = rows[0]
@@ -94,52 +92,50 @@ async function buildNameMap(): Promise<Record<string, UserInfo>> {
       map[lid] = {
         name:     nick || full,
         avatar:   '/placeholder.svg?height=40&width=40',
-        location: locIdx >= 0 ? str(r[locIdx]) : '',
+        location: locIdx >= 0 ? str(r[locIdx]) : '', // ตำบล
         isTourist,
       }
     }
   } catch (error) {
-    console.error('[submission-dashboard] Registration read error:', error)
+    console.error('[dashboard] Registration read error:', error)
   }
   return map
 }
 
-// ─── GET Handler ─────────────────────────────────────────────────────────────
+// ─── GET Handler (ดึงก้อนเดียวได้ทั้งหมด) ───────────────────────────────────
 
 export async function GET(request: NextRequest) {
   if (!SHEETS_API_KEY) {
     return NextResponse.json(
-      { error: 'Google Sheets API Key not configured (Missing GOOGLE_SHEETS_API_KEY)' },
+      { error: 'Google Sheets API Key not configured' },
       { status: 500 }
     )
   }
 
   try {
-    // 1. อ่านข้อมูล Registration (เพื่อดึงตำบล) และ หน้า Submission ไปพร้อมกัน (Parallel)
+    // 1. อ่านข้อมูล Registration และ Submission พร้อมกันแบบ Parallel
     const [nameMapResult, submissionRowsResult] = await Promise.allSettled([
       buildNameMap(),
-      readTab(SUBMISSION_SHEET_ID, PRIMARY_SUBMISSION_TAB),
+      readTab(SPREADSHEET_ID, SUBMISSION_TAB),
     ])
 
     const userMap = nameMapResult.status === 'fulfilled' ? nameMapResult.value : {}
     let rows: string[][] = []
-    let activeTabUsed = PRIMARY_SUBMISSION_TAB
 
     if (submissionRowsResult.status === 'fulfilled') {
       rows = submissionRowsResult.value
     } else {
-      console.warn(`[submission-dashboard] Tab "${PRIMARY_SUBMISSION_TAB}" read failed, trying fallbacks...`)
+      // Fallback กรณีชื่อ Tab ไม่ตรง
       const fallbackTabs = ['Submissions', 'submission', 'submissions', 'Sheet1']
       for (const tab of fallbackTabs) {
         try {
-          const fbRows = await readTab(SUBMISSION_SHEET_ID, tab)
+          const fbRows = await readTab(SPREADSHEET_ID, tab)
           if (fbRows.length > 1) {
             rows = fbRows
-            activeTabUsed = tab
             break
           }
         } catch {
-          // ลอง Tab ถัดไป
+          // ลองแท็บถัดไป
         }
       }
     }
@@ -150,11 +146,10 @@ export async function GET(request: NextRequest) {
         typeBreakdown: [],
         subTypeBreakdown: [],
         records: [],
-        activeTab: activeTabUsed,
       })
     }
 
-    // 2. ค้นหาดักจับคอลัมน์ต่างๆ รวมถึง "ประเภทย่อย" (Sub-Type)
+    // 2. ดักจับ Index ของคอลัมน์ต่างๆ จาก Submission Tab
     const h = rows[0]
     const idIdx        = findCol(h, ['user_id', 'line_user_id', 'lineuserid', 'userid'])
     const mainTypeIdx  = findCol(h, ['waste_type', 'wastetype', 'type', 'ประเภทขยะ', 'ชนิดขยะ', 'ประเภทหลัก'])
@@ -169,6 +164,7 @@ export async function GET(request: NextRequest) {
     const typeMap: Record<string, { weight: number; carbon: number }> = {}
     const subTypeMap: Record<string, { weight: number; carbon: number }> = {}
 
+    // 3. วนลูปผูกข้อมูล Submission เข้ากับ Map ตำบล
     const records: WasteRecord[] = rows
       .slice(1)
       .filter((r) => r.some((c) => str(c)))
@@ -185,12 +181,12 @@ export async function GET(request: NextRequest) {
         totalWeight += weight
         totalCarbon += carbon
 
-        // รวมยอดตามประเภทหลัก
+        // สรุปยอดประเภทหลัก
         if (!typeMap[wasteType]) typeMap[wasteType] = { weight: 0, carbon: 0 }
         typeMap[wasteType].weight += weight
         typeMap[wasteType].carbon += carbon
 
-        // รวมยอดตามประเภทย่อย
+        // สรุปยอดประเภทย่อย
         if (wasteSubType !== '-') {
           if (!subTypeMap[wasteSubType]) subTypeMap[wasteSubType] = { weight: 0, carbon: 0 }
           subTypeMap[wasteSubType].weight += weight
@@ -202,17 +198,17 @@ export async function GET(request: NextRequest) {
           date: dateIdx >= 0 ? str(row[dateIdx]) || new Date().toISOString() : new Date().toISOString(),
           lineUserId: lid,
           userName: userInfo?.name || (lid ? `ผู้ใช้ ${lid.slice(0, 5)}` : `ผู้ใช้ ${idx + 1}`),
-          subdistrict: userInfo?.location || '', // ตำบลผูกจาก Registration
+          subdistrict: userInfo?.location || '', // ดึงตำบลจาก Map ได้เลยไม่ต้องยิงรายคน!
           isTourist: userInfo?.isTourist ?? false,
           wasteType,
-          wasteSubType, // ประเภทย่อยส่งกลับไปด้วย
+          wasteSubType, // ประเภทย่อย
           weight: Math.round(weight * 100) / 100,
           carbon: Math.round(carbon * 100) / 100,
           points,
         }
       })
 
-    // 3. สรุปยอดแยกประเภทหลัก
+    // 4. ทำข้อมูลเปรียบเทียบสรุป
     const typeBreakdown: WasteTypeSummary[] = Object.entries(typeMap)
       .map(([type, val]) => ({
         type,
@@ -222,7 +218,6 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => b.weight - a.weight)
 
-    // 4. สรุปยอดแยกประเภทย่อย (เผื่อนำไปทำกราฟ/สถิติต่อ)
     const subTypeBreakdown: WasteTypeSummary[] = Object.entries(subTypeMap)
       .map(([type, val]) => ({
         type,
@@ -240,12 +235,11 @@ export async function GET(request: NextRequest) {
       },
       typeBreakdown,
       subTypeBreakdown,
-      records: records.reverse(), // แสดงรายการล่าสุดขึ้นก่อน
-      activeTab: activeTabUsed,
+      records: records.reverse(), // ส่งคืนประวัติทั้งหมด
     })
 
   } catch (error) {
-    console.error('[submission-dashboard] Error:', error)
-    return NextResponse.json({ error: 'Failed to fetch submission data' }, { status: 500 })
+    console.error('[dashboard] Error:', error)
+    return NextResponse.json({ error: 'Failed to fetch dashboard data' }, { status: 500 })
   }
 }
