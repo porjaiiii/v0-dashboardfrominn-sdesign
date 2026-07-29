@@ -21,6 +21,7 @@ export type WasteRecord = {
   weight: number
   carbon: number
   points: number
+  status?: string       // สถานะรายการ
 }
 
 export type WasteTypeSummary = {
@@ -158,16 +159,27 @@ export async function GET(request: NextRequest) {
     const co2Idx       = findCol(h, ['co2', 'kgco2', 'carbon', 'คาร์บอน'])
     const pointsIdx    = findCol(h, ['points', 'point', 'คะแนน'])
     const dateIdx      = findCol(h, ['created_at', 'timestamp', 'date', 'datetime', 'time', 'วันเวลา', 'วันที่'])
+    
+    // 🟢 หา Index ของสถานะ (ค้นหาจาก Header คำว่า 'status' / 'สถานะ' หรือ Fallback ไปที่ คอลัมน์ที่ 9 ซึ่งคือ Index 8)
+    const statusColIdx = findCol(h, ['status', 'สถานะ'])
+    const statusIdx    = statusColIdx >= 0 ? statusColIdx : 8
 
     let totalWeight = 0
     let totalCarbon = 0
     const typeMap: Record<string, { weight: number; carbon: number }> = {}
     const subTypeMap: Record<string, { weight: number; carbon: number }> = {}
 
-    // 3. วนลูปผูกข้อมูล Submission เข้ากับ Map ตำบล
+    // 3. วนลูปผูกข้อมูล Submission เข้ากับ Map ตำบล (พร้อมกรองเฉพาะ status === 'done')
     const records: WasteRecord[] = rows
       .slice(1)
-      .filter((r) => r.some((c) => str(c)))
+      .filter((r) => {
+        // ต้องมีข้อมูลอย่างน้อย 1 ช่อง
+        if (!r.some((c) => str(c))) return false
+
+        // 🟢 เช็กสถานะ: แสดงเฉพาะรายการที่ status เป็น 'done' เท่านั้น (ไม่สนใจตัวพิมพ์เล็ก-ใหญ่)
+        const itemStatus = str(r[statusIdx]).toLowerCase()
+        return itemStatus === 'done'
+      })
       .map((row, idx) => {
         const lid = idIdx >= 0 ? str(row[idIdx]) : ''
         const userInfo = userMap[lid]
@@ -177,6 +189,7 @@ export async function GET(request: NextRequest) {
         const weight = weightIdx >= 0 ? toNumber(row[weightIdx]) : 0
         const carbon = co2Idx >= 0 ? toNumber(row[co2Idx]) : 0
         const points = pointsIdx >= 0 ? toNumber(row[pointsIdx]) : 0
+        const status = str(row[statusIdx]) || 'done'
 
         totalWeight += weight
         totalCarbon += carbon
@@ -205,6 +218,7 @@ export async function GET(request: NextRequest) {
           weight: Math.round(weight * 100) / 100,
           carbon: Math.round(carbon * 100) / 100,
           points,
+          status,
         }
       })
 
