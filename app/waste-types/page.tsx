@@ -1,18 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Sidebar from '@/components/dashboard/Sidebar'
 import { useAuth } from '@/lib/auth-context'
 import { useLiff } from '@/lib/liff-context'
-import {
-  WASTE_CATEGORIES,
-  TAMBON_LIST,
-  getSubtypeMonthlyData,
-  getSubtypeTotal,
-  type MainCategory,
-} from '@/lib/waste-types-data'
+import { WASTE_CATEGORIES, type MainCategory } from '@/lib/waste-types-data'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer,
@@ -20,6 +14,22 @@ import {
 
 const font = { fontFamily: 'var(--font-ibm-plex-sans-thai), IBM Plex Sans Thai, sans-serif' }
 const TAMBON_LIST_DATA = ['บางกะเจ้า', 'บางยอ', 'บางกอบัว', 'บางกระสอบ', 'บางน้ำผึ้ง', 'ทรงคนอง']
+const MONTH_NAMES = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+
+// อินเทอร์เฟซสำหรับโครงสร้างข้อมูลขยะจริงจาก GAS
+interface WasteRecord {
+  id?: string
+  user_id?: string
+  subdistrict?: string // ตำบล (เช่น 'บางกะเจ้า')
+  tambon?: string
+  category?: string    // หมวดหมู่หลัก (เช่น 'plastic', 'paper', 'glass', 'other')
+  mainCategory?: string
+  subtype?: string     // ชนิดย่อย (เช่น 'pet', 'hdpe')
+  weight?: number      // น้ำหนัก (กิโลกรัม)
+  amount?: number
+  date?: string        // วันที่บันทึก (เช่น '2026-03-15' หรือ พ.ศ.)
+  createdAt?: string
+}
 
 // SVG icon per category
 function CategoryIcon({ cat, size = 20 }: { cat: MainCategory; size?: number }) {
@@ -61,28 +71,148 @@ export default function WasteTypesPage() {
   const [year] = useState(2569)
   const [profileOpen, setProfileOpen] = useState(false)
 
+  // State สำหรับดึงข้อมูลจริง
+  const [rawRecords, setRawRecords] = useState<WasteRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [userProfileData, setUserProfileData] = useState<{ subdistrict?: string; fullName?: string } | null>(null)
+
   const isAuthenticated = !!emailUser || liffLoggedIn
 
   useEffect(() => {
     if (isLiffReady && !isAuthenticated) router.push('/login')
   }, [isLiffReady, isAuthenticated, router])
 
+  // 1. ดึงข้อมูลโปรไฟล์ผู้ใช้เพื่อตั้งค่า ตำบล เริ่มต้นอัตโนมัติ
+  useEffect(() => {
+    async function fetchUserProfile() {
+      if (!liffProfile?.userId) return
+      try {
+        const res = await fetch(`/api/user/${liffProfile.userId}`)
+        if (res.ok) {
+          const data = await res.json()
+          setUserProfileData(data)
+          if (data.subdistrict && TAMBON_LIST_DATA.includes(data.subdistrict)) {
+            setTambon(data.subdistrict)
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching user profile for subdistrict:', err)
+      }
+    }
+    if (liffLoggedIn && liffProfile?.userId) {
+      fetchUserProfile()
+    }
+  }, [liffLoggedIn, liffProfile])
+
+  // 2. ดึงข้อมูลรายการขยะทั้งหมดจาก GAS
+  const fetchWasteRecords = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const res = await fetch(`/api/waste-dashboard?year=${year}`)
+      if (res.ok) {
+        const data = await res.json()
+        setRawRecords(data.records || [])
+      } else {
+        console.error('Failed to fetch waste records')
+      }
+    } catch (err) {
+      console.error('Error fetching dashboard waste records:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [year])
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchWasteRecords()
+    }
+  }, [isAuthenticated, fetchWasteRecords])
+
+  // 3. ประมวลผลข้อมูลขยะจริงแยกตาม ตำบล, หมวดหมู่หลัก, ชนิดย่อย และรายเดือน
+  const activeCatInfo = useMemo(() => {
+    return WASTE_CATEGORIES.find(c => c.id === activeCat)!
+  }, [activeCat])
+
+  // คำนวณยอดรวมขยะจำแนกตามประเภท ย่อย (Subtype Totals) สำหรับตำบลและหมวดหมู่ที่เลือก
+  const { totals, monthlyMap } = useMemo(() => {
+    const subtypeTotals: Record<string, number> = {}
+    activeCatInfo.subtypes.forEach(s => { subtypeTotals[s.id] = 0 })
+
+    // สร้าง Map รายเดือน ม.ค. - ธ.ค.
+    const monthlyDataMap: Record<number, Record<string, number>> = {}
+    for (let m = 0; m < 12; m++) {
+      monthlyDataMap[m] = {}
+      activeCatInfo.subtypes.forEach(s => { monthlyDataMap[m][s.id] = 0 })
+    }
+
+    // กรองและรวมข้อมูล
+    rawRecords.forEach(rec => {
+      const recTambon = rec.subdistrict || rec.tambon
+      const recCat = rec.category || rec.mainCategory
+      const recSubtype = rec.subtype
+      const recWeight = Number(rec.weight || rec.amount || 0)
+
+      if (recTambon === tambon && recCat === activeCat && recSubtype) {
+        // บวกยอดรวมรายชนิดย่อย
+        if (subtypeTotals[recSubtype] !== undefined) {
+          subtypeTotals[recSubtype] += recWeight
+        }
+
+        // หาสัปดาห์/เดือนจากวันที่
+        if (rec.date || rec.createdAt) {
+          const recDate = new Date(rec.date || rec.createdAt!)
+          if (!isNaN(recDate.getTime())) {
+            const monthIdx = recDate.getMonth()
+            if (monthlyDataMap[monthIdx] && monthlyDataMap[monthIdx][recSubtype] !== undefined) {
+              monthlyDataMap[monthIdx][recSubtype] += recWeight
+            }
+          }
+        }
+      }
+    })
+
+    return { totals: subtypeTotals, monthlyMap: monthlyDataMap }
+  }, [rawRecords, tambon, activeCat, activeCatInfo])
+
+  // จัดฟอร์แมตข้อมูลสำหรับกราฟ Recharts
+  const chartData = useMemo(() => {
+    return MONTH_NAMES.map((mName, idx) => {
+      const row: Record<string, string | number> = { month: mName }
+      activeCatInfo.subtypes.forEach(sub => {
+        row[sub.id] = monthlyMap[idx]?.[sub.id] || 0
+      })
+      return row
+    })
+  }, [monthlyMap, activeCatInfo])
+
+  // คำนวณยอดรวมของทุกหมวดหมู่สำหรับปุ่มสรุปด้านล่าง
+  const categoryGrandTotals = useMemo(() => {
+    const catTotals: Record<string, number> = { plastic: 0, paper: 0, glass: 0, other: 0 }
+    rawRecords.forEach(rec => {
+      const recTambon = rec.subdistrict || rec.tambon
+      const recCat = rec.category || rec.mainCategory
+      const recWeight = Number(rec.weight || rec.amount || 0)
+
+      if (recTambon === tambon && recCat && catTotals[recCat] !== undefined) {
+        catTotals[recCat] += recWeight
+      }
+    })
+    return catTotals
+  }, [rawRecords, tambon])
+
+  const grandTotal = Object.values(totals).reduce((a, b) => a + b, 0)
+
   if (!isAuthenticated) return null
 
-  const displayName = liffLoggedIn ? liffProfile?.displayName ?? '' : emailUser?.name ?? ''
+  const displayName = liffLoggedIn 
+    ? (userProfileData?.fullName || liffProfile?.displayName || '') 
+    : (emailUser?.name || '')
   const avatarUrl = liffLoggedIn ? liffProfile?.pictureUrl : null
 
   const handleLogout = () => {
     if (liffLoggedIn) liffLogout()
     router.push('/login')
   }
-
-  const activeCatInfo = WASTE_CATEGORIES.find(c => c.id === activeCat)!
-  const chartData = getSubtypeMonthlyData(tambon, activeCat, year).filter(
-    row => activeCatInfo.subtypes.some(s => (row[s.id] as number) > 0)
-  )
-  const totals = getSubtypeTotal(tambon, activeCat)
-  const grandTotal = Object.values(totals).reduce((a, b) => a + b, 0)
 
   return (
     <div className="flex" style={{ minHeight: '100vh', backgroundColor: '#f8faf8' }}>
@@ -147,9 +277,14 @@ export default function WasteTypesPage() {
         <main style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
           {/* Title row */}
           <div className="flex items-center justify-between" style={{ flexWrap: 'wrap', gap: 12 }}>
-            <h1 style={{ color: '#154212', fontSize: 28, fontWeight: 700, margin: 0, ...font }}>
-              ปริมาณขยะแยกตามประเภท
-            </h1>
+            <div className="flex items-center" style={{ gap: 12 }}>
+              <h1 style={{ color: '#154212', fontSize: 28, fontWeight: 700, margin: 0, ...font }}>
+                ปริมาณขยะแยกตามประเภท
+              </h1>
+              {isLoading && (
+                <span style={{ fontSize: 13, color: '#6b7280', ...font }}>กำลังโหลดข้อมูลจาก GAS...</span>
+              )}
+            </div>
 
             {/* Tambon selector pills */}
             <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -212,7 +347,6 @@ export default function WasteTypesPage() {
                     display: 'flex', flexDirection: 'column', gap: 10,
                   }}
                 >
-                  {/* Colour dot + name */}
                   <div className="flex items-center" style={{ gap: 8 }}>
                     <div style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: sub.color, flexShrink: 0 }} />
                     <div>
@@ -221,13 +355,11 @@ export default function WasteTypesPage() {
                     </div>
                   </div>
 
-                  {/* KG total */}
                   <div>
                     <span style={{ fontSize: 28, fontWeight: 700, color: activeCatInfo.color, ...font }}>{kg.toLocaleString()}</span>
                     <span style={{ fontSize: 13, color: '#666', marginLeft: 4, ...font }}>KG</span>
                   </div>
 
-                  {/* Progress bar */}
                   <div>
                     <div style={{ height: 6, backgroundColor: '#f0f0f0', borderRadius: 3, overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${pct}%`, backgroundColor: sub.color, borderRadius: 3, transition: 'width 0.4s ease' }} />
@@ -250,7 +382,7 @@ export default function WasteTypesPage() {
           >
             <div className="flex items-center" style={{ gap: 12, marginBottom: 20 }}>
               <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#154212', ...font }}>
-                รายงานน้ำหนักขยะจำแนกประเภทรายเดือน
+                รายงานน้ำหนักขยะจำแนกประเภทรายเดือน (ตำบล{tambon})
               </h2>
               <span style={{
                 padding: '4px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
@@ -292,14 +424,14 @@ export default function WasteTypesPage() {
                   iconSize={10}
                   wrapperStyle={{ fontSize: 13, fontFamily: font.fontFamily, paddingTop: 12 }}
                 />
-                {activeCatInfo.subtypes.map(sub => (
+                {activeCatInfo.subtypes.map((sub, index) => (
                   <Bar
                     key={sub.id}
                     dataKey={sub.id}
                     name={sub.name}
                     stackId="a"
                     fill={sub.color}
-                    radius={sub.id === activeCatInfo.subtypes[activeCatInfo.subtypes.length - 1].id ? [0, 3, 3, 0] : [0, 0, 0, 0]}
+                    radius={index === activeCatInfo.subtypes.length - 1 ? [0, 3, 3, 0] : [0, 0, 0, 0]}
                   />
                 ))}
               </BarChart>
@@ -309,8 +441,7 @@ export default function WasteTypesPage() {
           {/* Summary totals row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
             {WASTE_CATEGORIES.map(cat => {
-              const catTotals = getSubtypeTotal(tambon, cat.id as MainCategory)
-              const total = Object.values(catTotals).reduce((a, b) => a + b, 0)
+              const total = categoryGrandTotals[cat.id] || 0
               const isActive = activeCat === cat.id
               return (
                 <button
