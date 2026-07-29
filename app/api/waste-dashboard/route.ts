@@ -8,64 +8,64 @@ const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzJnOKoc
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const year = searchParams.get('year') || '2569'
+    // 1. ดึง Waste Records ทั้งหมดด้วย action: 'getRecords'
+    const recordsRes = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'getRecords',
+        type: 'all', // หรือส่งพารามิเตอร์ตามที่ GAS ฝั่งบันทึกขยะของคุณตั้งไว้
+      }),
+    })
 
-    console.log('[v0] Fetching dashboard waste records for year:', year)
-
-    const payload = {
-      action: 'getDashboardRecords', // หรือ 'getRecords' แล้วแต่ action ใน GAS
-      type: 'all',
-      year: year,
+    if (!recordsRes.ok) {
+      return NextResponse.json({ error: 'Failed to fetch waste records' }, { status: 500, headers: NO_STORE })
     }
 
-    // Helper Retry แบบเดียวกับไฟล์ดึงโปรไฟล์เพื่อแก้ปัญหาน้ำแข็งเกาะ (Cold Start) ของ GAS
-    const fetchWithRetry = async (retries = 2): Promise<Response> => {
-      for (let attempt = 1; attempt <= retries; attempt++) {
-        const controller = new AbortController()
-        const timer = setTimeout(() => controller.abort(), 25_000)
+    const recordsData = await recordsRes.json()
+    const rawRecords = recordsData.records || []
+
+    // 2. ดึง user_id ทั้งหมดที่ไม่ซ้ำกัน (Unique User IDs)
+    const uniqueUserIds: string[] = Array.from(
+      new Set(rawRecords.map((r: { user_id: string }) => r.user_id).filter(Boolean))
+    )
+
+    // 3. ดึง subdistrict ของแต่ละ user_id ผ่าน action: 'getUser' แบบยิงคู่ขนาน (Promise.all)
+    const userSubdistrictMap: Record<string, string> = {}
+
+    await Promise.all(
+      uniqueUserIds.map(async (userId) => {
         try {
-          const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+          const userRes = await fetch(GOOGLE_APPS_SCRIPT_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            signal: controller.signal,
+            body: JSON.stringify({
+              action: 'getUser',
+              lineUserId: userId,
+            }),
           })
-          clearTimeout(timer)
-          return res
-        } catch (err: unknown) {
-          clearTimeout(timer)
-          if (attempt === retries) throw err
-          await new Promise((r) => setTimeout(r, 1_000))
+
+          if (userRes.ok) {
+            const userData = await userRes.json()
+            if (userData.status === 'success' && userData.data?.subdistrict) {
+              userSubdistrictMap[userId] = userData.data.subdistrict
+            }
+          }
+        } catch (e) {
+          console.warn(`[v0] Could not fetch subdistrict for user_id: ${userId}`, e)
         }
-      }
-      throw new Error('Unreachable')
-    }
-
-    const response = await fetchWithRetry(2)
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: 'Failed to fetch waste records from GAS' },
-        { status: response.status, headers: NO_STORE }
-      )
-    }
-
-    const data = await response.json()
-
-    // คืนค่ารายการ records (รองรับทั้ง response.records หรือ response.data)
-    return NextResponse.json(
-      {
-        records: data.records || data.data || [],
-        status: 'success'
-      },
-      { headers: NO_STORE }
+      })
     )
+
+    // 4. แมป subdistrict กลับเข้าตัว Waste Record แต่ละอัน
+    const enrichedRecords = rawRecords.map((record: any) => ({
+      ...record,
+      subdistrict: userSubdistrictMap[record.user_id] || 'ไม่ระบุ',
+    }))
+
+    return NextResponse.json({ records: enrichedRecords }, { headers: NO_STORE })
   } catch (error) {
     console.error('[v0] Dashboard API Error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch waste records' },
-      { status: 500, headers: NO_STORE }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: NO_STORE })
   }
 }
