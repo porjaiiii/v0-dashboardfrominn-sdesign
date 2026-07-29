@@ -492,38 +492,7 @@ export default function WasteTypesPage() {
             </ResponsiveContainer>
           </div>
 
-          {/* Bottom Summary Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-            {WASTE_CATEGORIES.map(cat => {
-              const total = categoryGrandTotals[cat.id] || 0
-              const isActive = activeCat === cat.id
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCat(cat.id as MainCategory)}
-                  style={{
-                    backgroundColor: isActive ? cat.color : '#ffffff',
-                    border: `2px solid ${isActive ? cat.color : 'rgba(0,0,0,0.15)'}`,
-                    borderRadius: 12,
-                    padding: '18px 20px',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    transition: 'all 0.15s ease-in-out',
-                    ...fontStyle,
-                  }}
-                >
-                  <div className="flex items-center" style={{ gap: 8, marginBottom: 8 }}>
-                    <CategoryIcon cat={cat.id as MainCategory} size={20} />
-                    <span style={{ fontSize: 16, fontWeight: 600, color: isActive ? '#ffffff' : '#154212', ...fontStyle }}>{cat.label}</span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: 30, fontWeight: 600, color: isActive ? '#ffffff' : '#154212', ...fontStyle }}>
-                    {total.toLocaleString()}
-                  </p>
-                  <p style={{ margin: '4px 0 0', fontSize: 13, fontWeight: 500, color: isActive ? 'rgba(255,255,255,0.85)' : '#666', ...fontStyle }}>กิโลกรัม (ปี {year})</p>
-                </button>
-              )
-            })}
-          </div>
+         
 
         </main>
       </div>
