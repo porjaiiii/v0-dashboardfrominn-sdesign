@@ -16,22 +16,21 @@ const font = { fontFamily: 'var(--font-ibm-plex-sans-thai), IBM Plex Sans Thai, 
 const TAMBON_LIST_DATA = ['บางกะเจ้า', 'บางยอ', 'บางกอบัว', 'บางกระสอบ', 'บางน้ำผึ้ง', 'ทรงคนอง']
 const MONTH_NAMES = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
-// อินเทอร์เฟซสำหรับโครงสร้างข้อมูลขยะจริงจาก GAS
+// Interface ตรงตามของคุณ + แปะ subdistrict ที่มาจาก API route
 interface WasteRecord {
-  id?: string
-  user_id?: string
-  subdistrict?: string // ตำบล (เช่น 'บางกะเจ้า')
-  tambon?: string
-  category?: string    // หมวดหมู่หลัก (เช่น 'plastic', 'paper', 'glass', 'other')
-  mainCategory?: string
-  subtype?: string     // ชนิดย่อย (เช่น 'pet', 'hdpe')
-  weight?: number      // น้ำหนัก (กิโลกรัม)
-  amount?: number
-  date?: string        // วันที่บันทึก (เช่น '2026-03-15' หรือ พ.ศ.)
-  createdAt?: string
+  timestamp: string
+  user_id: string
+  waste_type: string        // เช่น 'plastic', 'paper', 'glass', 'other'
+  waste_subtype: string     // เช่น 'pet', 'hdpe'
+  weight_kg: number
+  image_urls: string[]
+  carbon_reduction: number
+  points_earned: number
+  status: string
+  subdistrict?: string      // ได้มาจากการ Lookup ฝั่ง Server
 }
 
-// SVG icon per category
+// Icon Component
 function CategoryIcon({ cat, size = 20 }: { cat: MainCategory; size?: number }) {
   const stroke = WASTE_CATEGORIES.find(c => c.id === cat)?.color ?? '#333'
   if (cat === 'plastic') return (
@@ -71,10 +70,9 @@ export default function WasteTypesPage() {
   const [year] = useState(2569)
   const [profileOpen, setProfileOpen] = useState(false)
 
-  // State สำหรับดึงข้อมูลจริง
+  // State เก็บข้อมูลจริง
   const [rawRecords, setRawRecords] = useState<WasteRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [userProfileData, setUserProfileData] = useState<{ subdistrict?: string; fullName?: string } | null>(null)
 
   const isAuthenticated = !!emailUser || liffLoggedIn
 
@@ -82,7 +80,7 @@ export default function WasteTypesPage() {
     if (isLiffReady && !isAuthenticated) router.push('/login')
   }, [isLiffReady, isAuthenticated, router])
 
-  // 1. ดึงข้อมูลโปรไฟล์ผู้ใช้เพื่อตั้งค่า ตำบล เริ่มต้นอัตโนมัติ
+  // 1. ดึงโปรไฟล์ผู้ใช้ปัจจุบันเพื่อเลือกตำบลเริ่มต้นให้อัตโนมัติ
   useEffect(() => {
     async function fetchUserProfile() {
       if (!liffProfile?.userId) return
@@ -90,13 +88,12 @@ export default function WasteTypesPage() {
         const res = await fetch(`/api/user/${liffProfile.userId}`)
         if (res.ok) {
           const data = await res.json()
-          setUserProfileData(data)
           if (data.subdistrict && TAMBON_LIST_DATA.includes(data.subdistrict)) {
             setTambon(data.subdistrict)
           }
         }
       } catch (err) {
-        console.error('Error fetching user profile for subdistrict:', err)
+        console.error('Error fetching user profile:', err)
       }
     }
     if (liffLoggedIn && liffProfile?.userId) {
@@ -104,23 +101,21 @@ export default function WasteTypesPage() {
     }
   }, [liffLoggedIn, liffProfile])
 
-  // 2. ดึงข้อมูลรายการขยะทั้งหมดจาก GAS
+  // 2. ดึงข้อมูลขยะจาก API Route
   const fetchWasteRecords = useCallback(async () => {
     setIsLoading(true)
     try {
-      const res = await fetch(`/api/waste-dashboard?year=${year}`)
+      const res = await fetch('/api/waste-dashboard')
       if (res.ok) {
         const data = await res.json()
         setRawRecords(data.records || [])
-      } else {
-        console.error('Failed to fetch waste records')
       }
     } catch (err) {
-      console.error('Error fetching dashboard waste records:', err)
+      console.error('Error fetching waste records:', err)
     } finally {
       setIsLoading(false)
     }
-  }, [year])
+  }, [])
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -128,43 +123,38 @@ export default function WasteTypesPage() {
     }
   }, [isAuthenticated, fetchWasteRecords])
 
-  // 3. ประมวลผลข้อมูลขยะจริงแยกตาม ตำบล, หมวดหมู่หลัก, ชนิดย่อย และรายเดือน
   const activeCatInfo = useMemo(() => {
     return WASTE_CATEGORIES.find(c => c.id === activeCat)!
   }, [activeCat])
 
-  // คำนวณยอดรวมขยะจำแนกตามประเภท ย่อย (Subtype Totals) สำหรับตำบลและหมวดหมู่ที่เลือก
+  // 3. รวมน้ำหนักขยะตาม ตำบล + waste_type + waste_subtype + รายเดือน
   const { totals, monthlyMap } = useMemo(() => {
     const subtypeTotals: Record<string, number> = {}
     activeCatInfo.subtypes.forEach(s => { subtypeTotals[s.id] = 0 })
 
-    // สร้าง Map รายเดือน ม.ค. - ธ.ค.
     const monthlyDataMap: Record<number, Record<string, number>> = {}
     for (let m = 0; m < 12; m++) {
       monthlyDataMap[m] = {}
       activeCatInfo.subtypes.forEach(s => { monthlyDataMap[m][s.id] = 0 })
     }
 
-    // กรองและรวมข้อมูล
     rawRecords.forEach(rec => {
-      const recTambon = rec.subdistrict || rec.tambon
-      const recCat = rec.category || rec.mainCategory
-      const recSubtype = rec.subtype
-      const recWeight = Number(rec.weight || rec.amount || 0)
-
-      if (recTambon === tambon && recCat === activeCat && recSubtype) {
-        // บวกยอดรวมรายชนิดย่อย
-        if (subtypeTotals[recSubtype] !== undefined) {
-          subtypeTotals[recSubtype] += recWeight
+      const weight = Number(rec.weight_kg || 0)
+      
+      // กรองเฉพาะตำบลและหมวดหมู่ที่เลือก
+      if (rec.subdistrict === tambon && rec.waste_type === activeCat && rec.waste_subtype) {
+        // ยอดรวมตามชนิดย่อย
+        if (subtypeTotals[rec.waste_subtype] !== undefined) {
+          subtypeTotals[rec.waste_subtype] += weight
         }
 
-        // หาสัปดาห์/เดือนจากวันที่
-        if (rec.date || rec.createdAt) {
-          const recDate = new Date(rec.date || rec.createdAt!)
+        // ยอดรวมรายเดือนจาก timestamp
+        if (rec.timestamp) {
+          const recDate = new Date(rec.timestamp)
           if (!isNaN(recDate.getTime())) {
             const monthIdx = recDate.getMonth()
-            if (monthlyDataMap[monthIdx] && monthlyDataMap[monthIdx][recSubtype] !== undefined) {
-              monthlyDataMap[monthIdx][recSubtype] += recWeight
+            if (monthlyDataMap[monthIdx]?.[rec.waste_subtype] !== undefined) {
+              monthlyDataMap[monthIdx][rec.waste_subtype] += weight
             }
           }
         }
@@ -174,7 +164,7 @@ export default function WasteTypesPage() {
     return { totals: subtypeTotals, monthlyMap: monthlyDataMap }
   }, [rawRecords, tambon, activeCat, activeCatInfo])
 
-  // จัดฟอร์แมตข้อมูลสำหรับกราฟ Recharts
+  // ฟอร์แมตข้อมูลส่งเข้า BarChart
   const chartData = useMemo(() => {
     return MONTH_NAMES.map((mName, idx) => {
       const row: Record<string, string | number> = { month: mName }
@@ -185,16 +175,13 @@ export default function WasteTypesPage() {
     })
   }, [monthlyMap, activeCatInfo])
 
-  // คำนวณยอดรวมของทุกหมวดหมู่สำหรับปุ่มสรุปด้านล่าง
+  // รวมยอดน้ำหนักตามหมวดหมู่ใหญ่สำหรับการ์ดสรุปปุ่มด้านล่าง
   const categoryGrandTotals = useMemo(() => {
     const catTotals: Record<string, number> = { plastic: 0, paper: 0, glass: 0, other: 0 }
     rawRecords.forEach(rec => {
-      const recTambon = rec.subdistrict || rec.tambon
-      const recCat = rec.category || rec.mainCategory
-      const recWeight = Number(rec.weight || rec.amount || 0)
-
-      if (recTambon === tambon && recCat && catTotals[recCat] !== undefined) {
-        catTotals[recCat] += recWeight
+      const weight = Number(rec.weight_kg || 0)
+      if (rec.subdistrict === tambon && rec.waste_type && catTotals[rec.waste_type] !== undefined) {
+        catTotals[rec.waste_type] += weight
       }
     })
     return catTotals
@@ -204,9 +191,7 @@ export default function WasteTypesPage() {
 
   if (!isAuthenticated) return null
 
-  const displayName = liffLoggedIn 
-    ? (userProfileData?.fullName || liffProfile?.displayName || '') 
-    : (emailUser?.name || '')
+  const displayName = liffLoggedIn ? liffProfile?.displayName ?? '' : emailUser?.name ?? ''
   const avatarUrl = liffLoggedIn ? liffProfile?.pictureUrl : null
 
   const handleLogout = () => {
@@ -282,7 +267,7 @@ export default function WasteTypesPage() {
                 ปริมาณขยะแยกตามประเภท
               </h1>
               {isLoading && (
-                <span style={{ fontSize: 13, color: '#6b7280', ...font }}>กำลังโหลดข้อมูลจาก GAS...</span>
+                <span style={{ fontSize: 13, color: '#6b7280', ...font }}>กำลังโหลดข้อมูลขยะ...</span>
               )}
             </div>
 
