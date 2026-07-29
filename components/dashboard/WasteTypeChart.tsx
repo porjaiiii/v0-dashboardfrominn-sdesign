@@ -78,20 +78,29 @@ export default function WasteTypeChart({ selected, onSelect }: WasteTypeChartPro
       อลูมิเนียม: 0,
     }
 
-    records.forEach((r) => {
-      const sub = (r.subdistrict || '').trim()
+    records.forEach((r: any) => {
+      // 🟢 1. เช็กกรณีเลือก 'ทุกตำบล' หรือ 'ทั้งหมด'
+      const isAll = !selected || selected === 'ทุกตำบล' || selected === 'ทั้งหมด'
       
-      // เช็คว่าตำบลตรงกับที่เลือกหรือไม่ (หรือเลือก 'ทุกตำบล' / 'ทั้งหมด')
-      const isMatch =
-        !selected ||
-        selected === 'ทุกตำบล' ||
-        selected === 'ทั้งหมด' ||
-        sub.includes(selected) ||
-        selected.includes(sub)
+      let isMatch = false
+
+      if (isAll) {
+        isMatch = true
+      } else {
+        // 🟢 2. ดึงชื่อตำบลรองรับทุก Key (`subdistrict`, `subDistrict`, `tambon`)
+        const sub = (r.subdistrict || r.subDistrict || r.tambon || '').trim()
+
+        // 🟢 3. ป้องกัน Bug: รายการไม่มีชื่อตำบล ห้ามเอามารวมในตำบลเฉพาะ
+        if (sub) {
+          const cleanSub = sub.replace(/^ตำบล/, '').trim()
+          const cleanTarget = selected.replace(/^ตำบล/, '').trim()
+          isMatch = cleanSub.includes(cleanTarget) || cleanTarget.includes(cleanSub)
+        }
+      }
 
       if (isMatch) {
         const cat = matchCategory(r.wasteType)
-        const w = r.weight || 0
+        const w = Number(r.weight) || 0
         if (cat in categoryTotals) {
           categoryTotals[cat] += w
         }
