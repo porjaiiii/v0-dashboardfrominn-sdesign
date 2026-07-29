@@ -233,7 +233,10 @@ export default function Home() {
 
           {/* Annual waste chart */}
           <AnnualWasteChart />
-
+          {/* Map + Donut/Bar chart row — shared selectedDistrict state */}
+          <div className="flex" style={{ gap: 20 }}>
+            {/* 1. MapCard อยู่ที่เดิม ตำแหน่งเดิม ไม่ซ้อน Div */}
+            <MapCard selectedDistrict={selectedDistrict} onSelect={setSelectedDistrict} />
           {/* ฝั่งขวา: สวิตช์เลือกกราฟ + แสดงกราฟตามประเภทที่เลือก */}
             <div className="flex flex-col" style={{ flex: 1, minWidth: 0, gap: 10 }}>
               {/* Toggle Switch */}
@@ -299,6 +302,7 @@ export default function Home() {
                 )}
               </div>
             </div>
+          </div>
         </main>
       </div>
     </div>
