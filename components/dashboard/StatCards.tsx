@@ -184,6 +184,9 @@ export default function StatCards() {
         console.log('[StatCards] 📊 Summary Data:', summary)
         console.log('[StatCards] 🏷️ Type Breakdown List:', breakdown)
         console.log(`[StatCards] 📜 Total Records Received: ${records.length} items`)
+        console.log('[StatCards] 📋 รายการข้อมูลดิบทั้งหมด 294 รายการ (Array Object):', records)
+        console.table(records) // แสดงเป็นตารางเปิดกดดูคอลัมน์ได้ง่ายๆ บน Browser Console
+        console.log(`[StatCards] 📜 Total Records Received: ${records.length} items`)
 
         // ฟังก์ชั่นช่วยดึงน้ำหนักตามประเภทขยะ พร้อม Console Log แสดงผลค้นหา
         const getWeight = (categoryName: string, keywords: string[]) => {
