@@ -303,11 +303,17 @@ export default function WasteTypesPage() {
               })}
             </div>
           </div>
-
           {/* Main Category Tabs */}
           <div className="flex" style={{ gap: 12, flexWrap: 'wrap' }}>
             {WASTE_CATEGORIES.map(cat => {
               const isActive = activeCat === cat.id
+
+              // แมปสีประจำหมวดหมู่ขยะให้ตรงกับ StatCard
+              const themeColor =
+                cat.id === 'plastic' ? '#6fc060' :
+                cat.id === 'glass' ? '#89b9ea' :
+                cat.id === 'paper' ? '#c06060' : '#d7ce56'
+
               return (
                 <button
                   key={cat.id}
@@ -318,14 +324,14 @@ export default function WasteTypesPage() {
                     padding: '10px 22px',
                     borderRadius: 10,
                     cursor: 'pointer',
-                    border: `2px solid ${isActive ? cat.color : 'rgba(0,0,0,0.15)'}`,
-                    backgroundColor: isActive ? cat.color : '#ffffff',
+                    border: `2px solid ${isActive ? themeColor : 'rgba(0,0,0,0.15)'}`,
+                    backgroundColor: isActive ? themeColor : '#ffffff',
                     color: isActive ? '#ffffff' : '#154212',
                     fontWeight: 600,
                     fontSize: 16,
                     ...fontStyle,
                     transition: 'all 0.15s ease-in-out',
-                    boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                    boxShadow: isActive ? '0 4px 12px rgba(0,0,0,0.1)' : 'none',
                   }}
                 >
                   <CategoryIcon cat={cat.id as MainCategory} size={20} />
@@ -340,42 +346,78 @@ export default function WasteTypesPage() {
             {activeCatInfo.subtypes.map(sub => {
               const kg = totals[sub.id] ?? 0
               const pct = grandTotal > 0 ? Math.round((kg / grandTotal) * 100) : 0
+
+              // ดึงสีหลักตามหมวดหมู่ขยะที่เลือกอยู่
+              const currentCatColor =
+                activeCat === 'plastic' ? '#6fc060' :
+                activeCat === 'glass' ? '#89b9ea' :
+                activeCat === 'paper' ? '#c06060' : '#d7ce56'
+
               return (
                 <div
                   key={sub.id}
                   style={{
                     backgroundColor: '#ffffff',
-                    border: '2px solid rgba(0,0,0,0.15)',
+                    border: '2px solid rgba(0,0,0,0.12)',
                     borderRadius: 12,
                     padding: '18px 20px',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 12,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                   }}
                 >
-                  <div className="flex items-center" style={{ gap: 8 }}>
-                    <div style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: sub.color, flexShrink: 0 }} />
+                  <div className="flex items-center" style={{ gap: 10 }}>
+                    <div
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: '50%',
+                        backgroundColor: sub.color || currentCatColor,
+                        flexShrink: 0,
+                      }}
+                    />
                     <div>
-                      <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#154212', lineHeight: '22px', ...fontStyle }}>{sub.name}</p>
-                      <p style={{ margin: 0, fontSize: 13, color: '#666', fontWeight: 500, ...fontStyle }}>{sub.description}</p>
+                      <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#154212', lineHeight: '22px', ...fontStyle }}>
+                        {sub.name}
+                      </p>
+                      <p style={{ margin: 0, fontSize: 13, color: '#557551', fontWeight: 500, ...fontStyle }}>
+                        {sub.description}
+                      </p>
                     </div>
                   </div>
 
                   <div>
-                    <span style={{ fontSize: 32, fontWeight: 600, color: '#154212', ...fontStyle }}>{kg.toLocaleString()}</span>
-                    <span style={{ fontSize: 15, color: '#666', fontWeight: 600, marginLeft: 6, ...fontStyle }}>KG</span>
+                    <span style={{ fontSize: 32, fontWeight: 700, color: '#154212', ...fontStyle }}>
+                      {kg.toLocaleString()}
+                    </span>
+                    <span style={{ fontSize: 15, color: '#557551', fontWeight: 600, marginLeft: 6, ...fontStyle }}>
+                      กิโลกรัม
+                    </span>
                   </div>
 
                   <div>
-                    <div style={{ height: 6, backgroundColor: '#e8ece8', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, backgroundColor: sub.color, borderRadius: 3, transition: 'width 0.4s ease' }} />
+                    <div style={{ height: 8, backgroundColor: '#e8ece8', borderRadius: 4, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${pct}%`,
+                          backgroundColor: sub.color || currentCatColor,
+                          borderRadius: 4,
+                          transition: 'width 0.4s ease',
+                        }}
+                      />
                     </div>
-                    <p style={{ margin: '6px 0 0', fontSize: 13, color: '#666', fontWeight: 500, ...fontStyle }}>{pct}% ของรวมทั้งประเภท</p>
+                    <p style={{ margin: '6px 0 0', fontSize: 13, color: '#557551', fontWeight: 500, ...fontStyle }}>
+                      {pct}% ของรวมทั้งประเภท
+                    </p>
                   </div>
                 </div>
               )
             })}
           </div>
+
+         
 
           {/* Bar Chart Container */}
           <div
