@@ -8,6 +8,7 @@ import StatCards from '@/components/dashboard/StatCards'
 import AnnualWasteChart from '@/components/dashboard/AnnualWasteChart'
 import MapCard from '@/components/dashboard/MapCard'
 import WasteTypeChart from '@/components/dashboard/WasteTypeChart'
+import MonthlyWasteChart from '@/components/dashboard/MonthlyWasteChart'
 import { useAuth } from '@/lib/auth-context'
 import { useLiff } from '@/lib/liff-context'
 
@@ -22,6 +23,8 @@ export default function Home() {
 
   const [selectedDistrict, setSelectedDistrict] = useState('บางกะเจ้า')
   const [profileOpen, setProfileOpen] = useState(false)
+
+  const [chartType, setChartType] = useState<'donut' | 'bar'>('donut')
 
   // Derived auth state
   const isAuthenticated = !!emailUser || liffLoggedIn
@@ -231,14 +234,71 @@ export default function Home() {
           {/* Annual waste chart */}
           <AnnualWasteChart />
 
-          {/* Map + Donut chart row — shared selectedDistrict state */}
-          <div className="flex" style={{ gap: 20 }}>
-            <MapCard selectedDistrict={selectedDistrict} onSelect={setSelectedDistrict} />
-            <WasteTypeChart
-              selected={selectedDistrict}
-              onSelect={setSelectedDistrict}
-            />
-          </div>
+          {/* ฝั่งขวา: สวิตช์เลือกกราฟ + แสดงกราฟตามประเภทที่เลือก */}
+            <div className="flex flex-col" style={{ flex: 1, minWidth: 0, gap: 10 }}>
+              {/* Toggle Switch */}
+              <div className="flex justify-end items-center">
+                <div
+                  style={{
+                    display: 'flex',
+                    backgroundColor: '#ffffff',
+                    border: '2px solid #154212',
+                    borderRadius: 10,
+                    padding: 3,
+                    gap: 4,
+                  }}
+                >
+                  <button
+                    onClick={() => setChartType('donut')}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: 7,
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      backgroundColor: chartType === 'donut' ? '#154212' : 'transparent',
+                      color: chartType === 'donut' ? '#ffffff' : '#154212',
+                      transition: 'all 0.2s ease',
+                      ...fontStyle,
+                    }}
+                  >
+                    กราฟโดนัท
+                  </button>
+                  <button
+                    onClick={() => setChartType('bar')}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: 7,
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      backgroundColor: chartType === 'bar' ? '#154212' : 'transparent',
+                      color: chartType === 'bar' ? '#ffffff' : '#154212',
+                      transition: 'all 0.2s ease',
+                      ...fontStyle,
+                    }}
+                  >
+                    กราฟแท่ง 
+                  </button>
+                </div>
+              </div>
+
+              {/* Chart Component */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                {chartType === 'donut' ? (
+                  <WasteTypeChart
+                    selected={selectedDistrict}
+                    onSelect={setSelectedDistrict}
+                  />
+                ) : (
+                  <MonthlyWasteChart
+                    tambon={selectedDistrict}
+                  />
+                )}
+              </div>
+            </div>
         </main>
       </div>
     </div>
