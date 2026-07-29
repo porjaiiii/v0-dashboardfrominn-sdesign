@@ -139,18 +139,31 @@ export default function WasteTypesPage() {
       activeCatInfo.subtypes.forEach(s => { monthlyDataMap[m][s.id] = 0 })
     }
 
-    rawRecords.forEach(rec => {
+rawRecords.forEach(rec => {
       const weight = Number(rec.weight ?? rec.weight_kg ?? 0)
-      const recSub = (rec.subdistrict || '').trim().replace(/^ตำบล/, '')
-      const currentTambon = tambon.trim().replace(/^ตำบล/, '')
+
+      // 🟢 1. เช็กกรณีเลือก 'ทุกตำบล' หรือ 'ทั้งหมด'
+      const isAllTambon = !tambon || tambon === 'ทุกตำบล' || tambon === 'ทั้งหมด'
+      let isTambonMatch = false
+
+      if (isAllTambon) {
+        isTambonMatch = true
+      } else {
+        // 🟢 2. ดึงชื่อตำบลรองรับทุก Key (`subdistrict`, `subDistrict`, `tambon`)
+        const sub = (rec.subdistrict || '').trim()
+
+        // 🟢 3. ป้องกัน Bug: รายการไม่มีชื่อตำบล ห้ามเอามารวมในตำบลเฉพาะ
+        if (sub) {
+          const cleanSub = sub.replace(/^ตำบล/, '').trim()
+          const cleanTarget = tambon.replace(/^ตำบล/, '').trim()
+          isTambonMatch = cleanSub.includes(cleanTarget) || cleanTarget.includes(cleanSub)
+        }
+      }
 
       const rawType = (rec.wasteType || rec.waste_type || '').toLowerCase()
       const rawSubType = rec.wasteSubType || rec.waste_subtype || ''
       const recDateStr = rec.date || rec.timestamp || ''
 
-      // ตรวจสอบตำบล
-      const isTambonMatch = recSub === currentTambon || recSub.includes(currentTambon) || currentTambon.includes(recSub)
-      
       // ตรวจสอบหมวดหมู่หลัก (รองรับทั้ง id ภาษาอังกฤษ และชื่อภาษาไทย)
       const isCatMatch =
         rawType === activeCat ||
