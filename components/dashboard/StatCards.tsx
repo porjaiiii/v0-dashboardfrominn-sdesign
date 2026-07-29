@@ -11,7 +11,7 @@ interface WasteRecord {
   tambon?: string
   wasteType: string
   weight: number
-  carbonReduce?: number
+  carbon: number
 }
 
 interface StatCardsProps {
@@ -198,7 +198,7 @@ export default function StatCards({ selectedDistrict }: StatCardsProps) {
 
     filtered.forEach((r) => {
       const w = Number(r.weight || 0)
-      const c = Number(r.carbonReduce || w * 0.8) // ค่าประมาณการลด CO2 ถ้าไม่มีจาก DB
+      const c = Number(r.carbon || 0)
       const cat = matchCategory(r.wasteType)
 
       totalWeight += w
