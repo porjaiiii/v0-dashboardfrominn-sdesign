@@ -1,13 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Image from 'next/image'
 
-interface WasteTypeSummary {
-  type: string
+interface WasteRecord {
+  id: string
+  date: string
+  subdistrict?: string
+  subDistrict?: string
+  tambon?: string
+  wasteType: string
   weight: number
-  carbon: number
-  percentage: number
+  carbonReduce?: number
+}
+
+interface StatCardsProps {
+  selectedDistrict?: string // 🟢 1. รับ Prop ตำบลเข้ามา
 }
 
 interface StatCardProps {
@@ -76,17 +84,7 @@ function StatCard({ label, value, unit, bgColor, icon, iconAlt, isLoading }: Sta
   )
 }
 
-interface SmallStatCardProps {
-  label: string
-  value: string
-  unit: string
-  bgColor: string
-  icon: string
-  iconAlt: string
-  isLoading?: boolean
-}
-
-function SmallStatCard({ label, value, unit, bgColor, icon, iconAlt, isLoading }: SmallStatCardProps) {
+function SmallStatCard({ label, value, unit, bgColor, icon, iconAlt, isLoading }: StatCardProps) {
   return (
     <div
       className="flex items-center justify-center overflow-hidden"
@@ -141,80 +139,32 @@ function SmallStatCard({ label, value, unit, bgColor, icon, iconAlt, isLoading }
   )
 }
 
-export default function StatCards() {
-  const [isLoading, setIsLoading] = useState(true)
-  const [data, setData] = useState<{
-    totalWeight: number
-    totalCarbon: number
-    plasticWeight: number
-    glassWeight: number
-    paperWeight: number
-    aluminiumWeight: number
-  }>({
-    totalWeight: 0,
-    totalCarbon: 0,
-    plasticWeight: 0,
-    glassWeight: 0,
-    paperWeight: 0,
-    aluminiumWeight: 0,
-  })
+// จำแนกประเภทขยะให้ตรงหมวด
+function matchCategory(typeStr: string): 'plastic' | 'glass' | 'paper' | 'aluminium' | 'other' {
+  const t = (typeStr || '').toLowerCase()
+  if (t.includes('plastic') || t.includes('พลาสติก')) return 'plastic'
+  if (t.includes('glass') || t.includes('แก้ว')) return 'glass'
+  if (t.includes('paper') || t.includes('กระดาษ')) return 'paper'
+  if (t.includes('alumi') || t.includes('อลูมิเนียม') || t.includes('กระป๋อง') || t.includes('โลหะ')) return 'aluminium'
+  return 'other'
+}
 
+export default function StatCards({ selectedDistrict }: StatCardsProps) {
+  const [isLoading, setIsLoading] = useState(true)
+  const [rawRecords, setRawRecords] = useState<WasteRecord[]>([])
+
+  // ดึงข้อมูลดิบทั้งหมดจาก API ครั้งเดียว
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setIsLoading(true)
-        console.log('[StatCards] 🚀 Starting fetch from /api/waste/dashboard...')
-        
         const res = await fetch('/api/waste/dashboard')
-        console.log(`[StatCards] 📡 HTTP Response Status: ${res.status} ${res.statusText}`)
-
-        if (!res.ok) {
-          const errText = await res.text()
-          console.error('[StatCards] ❌ API Response Error Body:', errText)
-          throw new Error(`Failed to fetch waste dashboard stats (Status: ${res.status})`)
-        }
+        if (!res.ok) throw new Error('Fetch failed')
         
         const result = await res.json()
-        console.log('[StatCards] 📦 Full Raw API Result:', result)
-
-        const summary = result.summary || { totalWeight: 0, totalCarbon: 0, totalRecords: 0 }
-        const breakdown: WasteTypeSummary[] = result.typeBreakdown || []
-        const records = result.records || []
-
-        console.log('[StatCards] 📊 Summary Data:', summary)
-        console.log('[StatCards] 🏷️ Type Breakdown List:', breakdown)
-        console.log(`[StatCards] 📜 Total Records Received: ${records.length} items`)
-        console.log('[StatCards] 📋 รายการข้อมูลดิบทั้งหมด 294 รายการ (Array Object):', records)
-        console.table(records) // แสดงเป็นตารางเปิดกดดูคอลัมน์ได้ง่ายๆ บน Browser Console
-        console.log(`[StatCards] 📜 Total Records Received: ${records.length} items`)
-
-        // ฟังก์ชั่นช่วยดึงน้ำหนักตามประเภทขยะ พร้อม Console Log แสดงผลค้นหา
-        const getWeight = (categoryName: string, keywords: string[]) => {
-          const matched = breakdown.find(item =>
-            keywords.some(kw => item.type.toLowerCase().includes(kw.toLowerCase()))
-          )
-          console.log(
-            `[StatCards] 🔍 Matching Category [${categoryName}] (Keywords: ${keywords.join(', ')}):`,
-            matched 
-              ? `Found ✅ -> Type: "${matched.type}", Weight: ${matched.weight} kg, Carbon: ${matched.carbon} kgCO2 (${matched.percentage}%)` 
-              : 'Not Found ❌ -> Defaulting to 0 kg'
-          )
-          return matched ? matched.weight : 0
-        }
-
-        const parsedData = {
-          totalWeight: summary.totalWeight || 0,
-          totalCarbon: summary.totalCarbon || 0,
-          plasticWeight: getWeight('พลาสติก', ['พลาสติก', 'plastic']),
-          glassWeight: getWeight('แก้ว', ['แก้ว', 'glass']),
-          paperWeight: getWeight('กระดาษ', ['กระดาษ', 'paper']),
-          aluminiumWeight: getWeight('อลูมิเนียม/โลหะ', ['อลูมิเนียม', 'โลหะ', 'กระป๋อง', 'aluminium', 'aluminum', 'can']),
-        }
-
-        console.log('[StatCards] ✅ Final Processed Data set to State:', parsedData)
-        setData(parsedData)
+        setRawRecords(result.records || [])
       } catch (error) {
-        console.error('[StatCards] 🚨 Fetch error caught:', error)
+        console.error('[StatCards] Fetch error:', error)
       } finally {
         setIsLoading(false)
       }
@@ -223,7 +173,46 @@ export default function StatCards() {
     fetchDashboardData()
   }, [])
 
-  // ฟังก์ชั่นฟอร์แมตตัวเลขให้ใส่คอมม่า (เช่น 1,234.5 หรือ 456,480)
+  // 🟢 2. คำนวณสรุปผลตาม `selectedDistrict` ที่เลือกแบบ Dynamic ทันที
+  const stats = useMemo(() => {
+    // กรองขยะเฉพาะตำบลที่เลือก (ถ้าเลือก "ทั้งหมด" หรือไม่ระบุ ให้ใช้ทุกรายการ)
+    const filtered = rawRecords.filter((r) => {
+      if (!selectedDistrict || selectedDistrict === 'ทุกตำบล' || selectedDistrict === 'ทั้งหมด') return true
+      const sub = (r.subdistrict || r.subDistrict || r.tambon || '').trim()
+      return sub.includes(selectedDistrict) || selectedDistrict.includes(sub)
+    })
+
+    let totalWeight = 0
+    let totalCarbon = 0
+    let plasticWeight = 0
+    let glassWeight = 0
+    let paperWeight = 0
+    let aluminiumWeight = 0
+
+    filtered.forEach((r) => {
+      const w = Number(r.weight || 0)
+      const c = Number(r.carbonReduce || w * 0.8) // ค่าประมาณการลด CO2 ถ้าไม่มีจาก DB
+      const cat = matchCategory(r.wasteType)
+
+      totalWeight += w
+      totalCarbon += c
+
+      if (cat === 'plastic') plasticWeight += w
+      if (cat === 'glass') glassWeight += w
+      if (cat === 'paper') paperWeight += w
+      if (cat === 'aluminium') aluminiumWeight += w
+    })
+
+    return {
+      totalWeight,
+      totalCarbon,
+      plasticWeight,
+      glassWeight,
+      paperWeight,
+      aluminiumWeight,
+    }
+  }, [rawRecords, selectedDistrict])
+
   const formatNum = (num: number) => {
     return num.toLocaleString('th-TH', { maximumFractionDigits: 1 })
   }
@@ -233,8 +222,8 @@ export default function StatCards() {
       {/* Top row: 2 large dark green cards */}
       <div className="flex" style={{ gap: 20 }}>
         <StatCard
-          label="น้ำหนักขยะที่รวบรวมได้ทั้งหมด"
-          value={formatNum(data.totalWeight)}
+          label={`น้ำหนักขยะที่รวบรวมได้ (${selectedDistrict || 'ภาพรวม'})`}
+          value={formatNum(stats.totalWeight)}
           unit="กิโลกรัม"
           bgColor="#154212"
           icon="/figma/tabler-icon-recycle-1.svg"
@@ -242,8 +231,8 @@ export default function StatCards() {
           isLoading={isLoading}
         />
         <StatCard
-          label="จำนวนการลดการปล่อย CO ทั้งหมด"
-          value={formatNum(data.totalCarbon)}
+          label="จำนวนการลดการปล่อย CO2 ทั้งหมด"
+          value={formatNum(stats.totalCarbon)}
           unit="kgCO2"
           bgColor="#154212"
           icon="/figma/tabler-icon-brand-onedrive.svg"
@@ -256,7 +245,7 @@ export default function StatCards() {
       <div className="flex" style={{ gap: 20 }}>
         <SmallStatCard
           label="น้ำหนักขยะประเภทพลาสติก"
-          value={formatNum(data.plasticWeight)}
+          value={formatNum(stats.plasticWeight)}
           unit="กิโลกรัม"
           bgColor="#6fc060"
           icon="/figma/tabler-icon-recycle-2.svg"
@@ -265,7 +254,7 @@ export default function StatCards() {
         />
         <SmallStatCard
           label="น้ำหนักขยะประเภทแก้ว"
-          value={formatNum(data.glassWeight)}
+          value={formatNum(stats.glassWeight)}
           unit="กิโลกรัม"
           bgColor="#89b9ea"
           icon="/figma/tabler-icon-recycle-3.svg"
@@ -274,7 +263,7 @@ export default function StatCards() {
         />
         <SmallStatCard
           label="น้ำหนักขยะประเภทกระดาษ"
-          value={formatNum(data.paperWeight)}
+          value={formatNum(stats.paperWeight)}
           unit="กิโลกรัม"
           bgColor="#c06060"
           icon="/figma/tabler-icon-recycle-4.svg"
@@ -283,7 +272,7 @@ export default function StatCards() {
         />
         <SmallStatCard
           label="น้ำหนักขยะประเภทอลูมิเนียม"
-          value={formatNum(data.aluminiumWeight)}
+          value={formatNum(stats.aluminiumWeight)}
           unit="กิโลกรัม"
           bgColor="#d7ce56"
           icon="/figma/tabler-icon-brand-onedrive-1.svg"
