@@ -110,7 +110,7 @@ export default function Sidebar({ activePage = 'home' }: SidebarProps) {
                   backgroundColor: activePage === 'map' ? 'rgba(0,0,0,0.30)' : 'transparent',
                 }}
               >
-                แผนที่แสดงสถานที่กำจัดขยะ
+                แผนที่ข้อมูลขยะรายตำบล
               </Link>
             </div>
             <div style={{ paddingTop: 2, paddingBottom: 2, paddingLeft: 52, paddingRight: 12 }}>
