@@ -179,7 +179,14 @@ export default function StatCards({ selectedDistrict }: StatCardsProps) {
     const filtered = rawRecords.filter((r) => {
       if (!selectedDistrict || selectedDistrict === 'ทุกตำบล' || selectedDistrict === 'ทั้งหมด') return true
       const sub = (r.subdistrict || r.subDistrict || r.tambon || '').trim()
-      return sub.includes(selectedDistrict) || selectedDistrict.includes(sub)
+      if (!sub) return false
+
+    // 3. ทำความสะอาดข้อความ (ตัดคำว่า "ตำบล" ออกเพื่อเปรียบเทียบชื่อเพียวๆ)
+    const cleanSub = sub.replace(/^ตำบล/, '').trim()
+    const cleanTarget = selectedDistrict.replace(/^ตำบล/, '').trim()
+
+    // 4. เปรียบเทียบชื่อ
+    return cleanSub.includes(cleanTarget) || cleanTarget.includes(cleanSub)
     })
 
     let totalWeight = 0

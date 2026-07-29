@@ -119,11 +119,23 @@ export default function MonthlyWasteChart({ tambon }: MonthlyWasteChartProps) {
 
   // 3. กรองข้อมูลตาม ตำบล (Tambon)
   const filteredRecords = useMemo(() => {
-    return records.filter((r) => {
-      if (!tambon || tambon === 'ทุกตำบล' || tambon === 'ทั้งหมด') return true
-      const sub = (r.subdistrict || '').trim()
-      return sub.includes(tambon) || tambon.includes(sub)
-    })
+  return records.filter((r: any) => {
+    // 1. ถ้าไม่ได้เลือกตำบล หรือเลือก "ทั้งหมด" ให้ดึงทุกรายการ
+    if (!tambon || tambon === 'ทุกตำบล' || tambon === 'ทั้งหมด') return true
+
+    // 2. ดึงชื่อตำบลจาก record
+    const sub = (r.subdistrict || r.subDistrict || r.tambon || '').trim()
+
+    // 🔴 [จุดสำคัญ] ถ้า record นี้ไม่มีชื่อตำบล ให้ข้ามไปเลย (ไม่เอามารวมซ้ำ)
+    if (!sub) return false
+
+    // 3. ทำความสะอาดข้อความ (ตัดคำว่า "ตำบล" ออกเพื่อเปรียบเทียบชื่อเพียวๆ)
+    const cleanSub = sub.replace(/^ตำบล/, '').trim()
+    const cleanTarget = tambon.replace(/^ตำบล/, '').trim()
+
+    // 4. เปรียบเทียบชื่อ
+    return cleanSub.includes(cleanTarget) || cleanTarget.includes(cleanSub)
+  })
   }, [records, tambon])
 
   // 4. ประมวลผลข้อมูลสำหรับแสดงในกราฟ (แยกตามโหมด 'รายเดือน' หรือ 'รายวัน')
