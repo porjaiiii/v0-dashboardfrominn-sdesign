@@ -34,7 +34,7 @@ export default function MapCard({ selectedDistrict, onSelect }: MapCardProps) {
             ...fontStyle,
           }}
         >
-          แผนที่แสดงสถานที่กำจัดขยะ
+          แผนที่แสดงพื้นที่แต่ละตำบล
         </span>
       </div>
 

@@ -295,22 +295,28 @@ export default function Home() {
           </div>
 
           {/* Dynamic Layout ตามประเภทกราฟที่เลือก */}
-          {chartType === 'donut' ? (
-            /* 1. กรณีเลือก กราฟโดนัท: แสดงแผนที่ และ โดนัทเคียงข้างกัน (เลเอาต์เดิม) */
-            <div className="flex" style={{ gap: 20 }}>
-              <MapCard selectedDistrict={selectedDistrict} onSelect={setSelectedDistrict} />
-              <WasteTypeChart
-                selected={selectedDistrict}
-                onSelect={setSelectedDistrict}
-              />
-            </div>
-          ) : (
-            /* 2. กรณีเลือก กราฟแท่ง: แสดงแผนที่อยู่บน แล้วย้ายกราฟแท่งมาอยู่ด้านล่างแบบเต็มความกว้าง (ไม่เบียด) */
-            <div className="flex flex-col" style={{ gap: 20 }}>
-              <MapCard selectedDistrict={selectedDistrict} onSelect={setSelectedDistrict} />
-              <MonthlyWasteChart tambon={selectedDistrict} />
-            </div>
-          )}
+{chartType === 'donut' ? (
+  /* 1. โหมดกราฟโดนัท: แสดงแผนที่ และ โดนัทเคียงข้างกัน (ขนาดปกติ) */
+  <div 
+  id="map-section" 
+  className="flex" 
+  style={{ gap: 20, scrollMarginTop: 80 }}
+>
+    <MapCard selectedDistrict={selectedDistrict} onSelect={setSelectedDistrict} />
+    <WasteTypeChart
+      selected={selectedDistrict}
+      onSelect={setSelectedDistrict}
+    />
+  </div>
+) : (
+  /* 2. โหมดกราฟแท่ง: คุมความสูงแผนที่ให้อยู่ในกรอบผืนผ้าใบแนวนอน (ไม่สูงเทอะทะ) */
+  <div className="flex flex-col" style={{ gap: 20 }}>
+    <div style={{ maxHeight: 320, overflow: 'hidden', borderRadius: 12, display: 'flex' }}>
+      <MapCard selectedDistrict={selectedDistrict} onSelect={setSelectedDistrict} />
+    </div>
+    <MonthlyWasteChart tambon={selectedDistrict} />
+  </div>
+)}
         </main>
       </div>
     </div>
