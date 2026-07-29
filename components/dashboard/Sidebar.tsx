@@ -95,24 +95,31 @@ export default function Sidebar({ activePage = 'home' }: SidebarProps) {
               </Link>
             </div>
             <div style={{ paddingTop: 2, paddingBottom: 2, paddingLeft: 52, paddingRight: 12 }}>
-              <Link
-                href="/map"
-                style={{
-                  display: 'block',
-                  color: '#ffffff',
-                  ...fontStyle,
-                  fontSize: 13,
-                  fontWeight: activePage === 'map' ? 700 : 400,
-                  lineHeight: '22px',
-                  textDecoration: 'none',
-                  padding: '5px 10px',
-                  borderRadius: 6,
-                  backgroundColor: activePage === 'map' ? 'rgba(0,0,0,0.30)' : 'transparent',
-                }}
-              >
-                แผนที่ข้อมูลขยะรายตำบล
-              </Link>
-            </div>
+  <a
+    href="#map-section"
+    onClick={(e) => {
+      e.preventDefault()
+      const element = document.getElementById('map-section')
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' })
+      }
+    }}
+    style={{
+      display: 'block',
+      color: '#ffffff',
+      ...fontStyle,
+      fontSize: 13,
+      fontWeight: activePage === 'map' ? 700 : 400,
+      lineHeight: '22px',
+      textDecoration: 'none',
+      padding: '5px 10px',
+      borderRadius: 6,
+      backgroundColor: activePage === 'map' ? 'rgba(0,0,0,0.30)' : 'transparent',
+    }}
+  >
+    แผนที่ข้อมูลขยะรายตำบล
+  </a>
+</div>
             <div style={{ paddingTop: 2, paddingBottom: 2, paddingLeft: 52, paddingRight: 12 }}>
               <Link
                 href="/waste-types"
