@@ -163,31 +163,55 @@ export default function StatCards() {
     const fetchDashboardData = async () => {
       try {
         setIsLoading(true)
+        console.log('[StatCards] 🚀 Starting fetch from /api/waste/dashboard...')
+        
         const res = await fetch('/api/waste/dashboard')
-        if (!res.ok) throw new Error('Failed to fetch waste dashboard stats')
+        console.log(`[StatCards] 📡 HTTP Response Status: ${res.status} ${res.statusText}`)
+
+        if (!res.ok) {
+          const errText = await res.text()
+          console.error('[StatCards] ❌ API Response Error Body:', errText)
+          throw new Error(`Failed to fetch waste dashboard stats (Status: ${res.status})`)
+        }
         
         const result = await res.json()
-        const summary = result.summary || { totalWeight: 0, totalCarbon: 0 }
-        const breakdown: WasteTypeSummary[] = result.typeBreakdown || []
+        console.log('[StatCards] 📦 Full Raw API Result:', result)
 
-        // ฟังก์ชั่นช่วยดึงน้ำหนักตามประเภทขยะ
-        const getWeight = (keywords: string[]) => {
+        const summary = result.summary || { totalWeight: 0, totalCarbon: 0, totalRecords: 0 }
+        const breakdown: WasteTypeSummary[] = result.typeBreakdown || []
+        const records = result.records || []
+
+        console.log('[StatCards] 📊 Summary Data:', summary)
+        console.log('[StatCards] 🏷️ Type Breakdown List:', breakdown)
+        console.log(`[StatCards] 📜 Total Records Received: ${records.length} items`)
+
+        // ฟังก์ชั่นช่วยดึงน้ำหนักตามประเภทขยะ พร้อม Console Log แสดงผลค้นหา
+        const getWeight = (categoryName: string, keywords: string[]) => {
           const matched = breakdown.find(item =>
             keywords.some(kw => item.type.toLowerCase().includes(kw.toLowerCase()))
+          )
+          console.log(
+            `[StatCards] 🔍 Matching Category [${categoryName}] (Keywords: ${keywords.join(', ')}):`,
+            matched 
+              ? `Found ✅ -> Type: "${matched.type}", Weight: ${matched.weight} kg, Carbon: ${matched.carbon} kgCO2 (${matched.percentage}%)` 
+              : 'Not Found ❌ -> Defaulting to 0 kg'
           )
           return matched ? matched.weight : 0
         }
 
-        setData({
+        const parsedData = {
           totalWeight: summary.totalWeight || 0,
           totalCarbon: summary.totalCarbon || 0,
-          plasticWeight: getWeight(['พลาสติก', 'plastic']),
-          glassWeight: getWeight(['แก้ว', 'glass']),
-          paperWeight: getWeight(['กระดาษ', 'paper']),
-          aluminiumWeight: getWeight(['อลูมิเนียม', 'โลหะ', 'กระป๋อง', 'aluminium', 'aluminum', 'can']),
-        })
+          plasticWeight: getWeight('พลาสติก', ['พลาสติก', 'plastic']),
+          glassWeight: getWeight('แก้ว', ['แก้ว', 'glass']),
+          paperWeight: getWeight('กระดาษ', ['กระดาษ', 'paper']),
+          aluminiumWeight: getWeight('อลูมิเนียม/โลหะ', ['อลูมิเนียม', 'โลหะ', 'กระป๋อง', 'aluminium', 'aluminum', 'can']),
+        }
+
+        console.log('[StatCards] ✅ Final Processed Data set to State:', parsedData)
+        setData(parsedData)
       } catch (error) {
-        console.error('[StatCards] Fetch error:', error)
+        console.error('[StatCards] 🚨 Fetch error caught:', error)
       } finally {
         setIsLoading(false)
       }
