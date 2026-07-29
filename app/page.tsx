@@ -297,7 +297,11 @@ export default function Home() {
           {/* Dynamic Layout ตามประเภทกราฟที่เลือก */}
 {chartType === 'donut' ? (
   /* 1. โหมดกราฟโดนัท: แสดงแผนที่ และ โดนัทเคียงข้างกัน (ขนาดปกติ) */
-  <div className="flex" style={{ gap: 20 }}>
+  <div 
+  id="map-section" 
+  className="flex" 
+  style={{ gap: 20, scrollMarginTop: 80 }}
+>
     <MapCard selectedDistrict={selectedDistrict} onSelect={setSelectedDistrict} />
     <WasteTypeChart
       selected={selectedDistrict}
