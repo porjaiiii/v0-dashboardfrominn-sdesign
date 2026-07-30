@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Sidebar from '@/components/dashboard/Sidebar'
+import MenuButton from '@/components/dashboard/MenuButton'
 import { useAuth } from '@/lib/auth-context'
 import { useLiff } from '@/lib/liff-context'
 import { WASTE_CATEGORIES, type MainCategory } from '@/lib/waste-types-data'
@@ -213,7 +214,7 @@ export default function WasteTypesPage() {
             flexShrink: 0,
           }}
         >
-          <Image src="/figma/tabler-icon-menu-2.svg" alt="menu" width={28} height={28} />
+          <MenuButton />
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setProfileOpen(!profileOpen)}
@@ -307,6 +308,7 @@ export default function WasteTypesPage() {
           </div>
 
           {/* การ์ดสรุปประเภทย่อย + การ์ดรวมทั้งหมด */}
+          {/* การ์ดยืดเต็มความกว้างของแถว (อย่างน้อยใบละ 222px ตามแบบ) */}
           <div
             style={{
               display: 'grid',
@@ -472,7 +474,7 @@ function InsightCard({
         backgroundColor: dark ? COLORS.green : COLORS.white,
         border: `1px solid ${dark ? COLORS.green : COLORS.border}`,
         borderRadius: 10,
-        padding: '15px 20px',
+        padding: '15px 28px',
         display: 'flex',
         flexDirection: 'column',
         gap: 12,

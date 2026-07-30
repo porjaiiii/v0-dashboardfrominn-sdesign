@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Sidebar from '@/components/dashboard/Sidebar'
+import MenuButton from '@/components/dashboard/MenuButton'
 import BangKachaoMap from '@/components/dashboard/BangKachaoMap'
 import WasteTypeChart from '@/components/dashboard/WasteTypeChart'
 import MonthlyWasteChart from '@/components/dashboard/MonthlyWasteChart'
@@ -64,12 +65,7 @@ export default function MapPage() {
             flexShrink: 0,
           }}
         >
-          <Image
-            src="/figma/tabler-icon-menu-2.svg"
-            alt="menu"
-            width={30}
-            height={30}
-          />
+          <MenuButton />
 
           {/* User profile top-right */}
           <div style={{ position: 'relative' }}>

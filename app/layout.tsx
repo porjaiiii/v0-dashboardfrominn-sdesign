@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { IBM_Plex_Sans_Thai } from 'next/font/google'
 import { AuthProvider } from '@/lib/auth-context'
 import { LiffProvider } from '@/lib/liff-context'
+import { SidebarProvider } from '@/lib/sidebar-context'
 import './globals.css'
 
 const ibmPlexSansThai = IBM_Plex_Sans_Thai({
@@ -33,7 +34,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <AuthProvider>
           <LiffProvider>
-            {children}
+            <SidebarProvider>{children}</SidebarProvider>
           </LiffProvider>
         </AuthProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}

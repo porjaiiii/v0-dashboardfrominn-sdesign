@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Sidebar from '@/components/dashboard/Sidebar'
+import MenuButton from '@/components/dashboard/MenuButton'
 import StatCards from '@/components/dashboard/StatCards'
 import AnnualWasteChart from '@/components/dashboard/AnnualWasteChart'
 import MapCard from '@/components/dashboard/MapCard'
@@ -69,12 +70,7 @@ export default function Home() {
             flexShrink: 0,
           }}
         >
-          <Image
-            src="/figma/tabler-icon-menu-2.svg"
-            alt="menu"
-            width={30}
-            height={30}
-          />
+          <MenuButton />
 
           {/* User profile top-right */}
           <div style={{ position: 'relative' }}>

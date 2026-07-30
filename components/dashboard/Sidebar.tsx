@@ -4,10 +4,14 @@ import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { COLORS, fontStyle } from '@/lib/design-tokens'
+import { useSidebar } from '@/lib/sidebar-context'
 
 interface SidebarProps {
   activePage?: 'home' | 'map' | 'waste-types'
 }
+
+/** ความกว้างของเมนูตามแบบ */
+const SIDEBAR_WIDTH = 258
 
 /** ความสูงของแถวเมนู และช่องไฟระหว่างแถว ตามที่วัดจากแบบ */
 const ROW_HEIGHT = 34
@@ -33,6 +37,7 @@ const rowBase = {
 
 export default function Sidebar({ activePage }: SidebarProps) {
   const [expanded, setExpanded] = useState(true)
+  const { collapsed } = useSidebar()
 
   const childStyle = (active: boolean) => ({
     ...rowBase,
@@ -42,9 +47,21 @@ export default function Sidebar({ activePage }: SidebarProps) {
 
   return (
     <aside
-      className="flex flex-col"
-      style={{ width: 258, minHeight: '100vh', backgroundColor: COLORS.green, flexShrink: 0 }}
+      aria-hidden={collapsed}
+      style={{
+        width: collapsed ? 0 : SIDEBAR_WIDTH,
+        minHeight: '100vh',
+        backgroundColor: COLORS.green,
+        flexShrink: 0,
+        overflow: 'hidden',
+        transition: 'width 0.25s ease',
+      }}
     >
+      {/* กว้างคงที่ ไม่ให้เนื้อหาบีบตัวระหว่างพับ */}
+      <div
+        className="flex flex-col"
+        style={{ width: SIDEBAR_WIDTH, minHeight: '100vh' }}
+      >
       {/* หัว sidebar — พื้นเขียวอ่อน มาสคอตชิดขวาล่างและถูกตัดขอบ */}
       <div
         style={{
@@ -120,7 +137,8 @@ export default function Sidebar({ activePage }: SidebarProps) {
             </Link>
           </>
         )}
-      </nav>
+        </nav>
+      </div>
     </aside>
   )
 }
