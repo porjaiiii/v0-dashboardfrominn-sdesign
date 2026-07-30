@@ -16,7 +16,7 @@ const WASTE_TAB = process.env.WASTE_SUBMISSION_TAB || 'submission'
 
 // หัวคอลัมน์ที่ต้องเจอ ใช้ยืนยันว่าอ่านถูกแท็บ
 const REG_HEADERS = ['line user id', 'ตำบล']
-const WASTE_HEADERS = ['waste_type', 'weight_kg', 'weight']
+const WASTE_HEADERS = ['waste_type', 'weight_kg']
 
 /** นับเฉพาะรายการที่ตรวจรับแล้ว ให้ตรงกับหน้า "ปริมาณขยะแยกตามประเภท" */
 const DONE_STATUS = 'done'
