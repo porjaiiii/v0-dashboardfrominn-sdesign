@@ -12,7 +12,7 @@ const REG_TAB = 'Registration'
 const TOURIST_USER_TYPE = 'นักท่องเที่ยว'
 
 // Tab หลักสำหรับเก็บประวัติขยะ
-const WASTE_TAB = process.env.WASTE_SUBMISSION_TAB || 'submission'
+const WASTE_TAB = 'submission'
 
 // หัวคอลัมน์ที่ต้องเจอ ใช้ยืนยันว่าอ่านถูกแท็บ
 const REG_HEADERS = ['line user id', 'ตำบล']
