@@ -5,8 +5,16 @@ import { readTab, readEnv, usingApiKey } from '@/lib/google-sheets'
 const DEFAULT_SHEET_ID = '1vvBe_ZySfSq4oP8tfwHDUg-Jo3gBr9QanQWqLATAkNE'
 
 const REG_SHEETS_ID = readEnv('REGISTRATION_SHEETS_ID') || DEFAULT_SHEET_ID
-/** ประวัติขยะอยู่ในไฟล์เดียวกับ Registration (ตั้ง POINTS_SPREADSHEET_ID เพื่อแยกไฟล์ได้) */
-const WASTE_SHEET_ID = readEnv('POINTS_SPREADSHEET_ID') || REG_SHEETS_ID
+
+/**
+ * แท็บ submission อยู่ในไฟล์เดียวกับ Registration เสมอ
+ *
+ * เดิมค่านี้ยอมให้ POINTS_SPREADSHEET_ID override เพื่อแยกไฟล์ได้ แต่ไฟล์ points
+ * (1nO4yo…) มีแค่แท็บสรุปคะแนนกับ co2_collection — ไม่มีแท็บ submission
+ * พอ Vercel ตั้ง POINTS_SPREADSHEET_ID ไว้ จึงอ่านผิดไฟล์แล้วพัง
+ * ("Unable to parse range: submission") ทั้งที่รันในเครื่องได้ปกติเพราะค่าว่าง
+ */
+const WASTE_SHEET_ID = REG_SHEETS_ID
 
 const REG_TAB = 'Registration'
 const TOURIST_USER_TYPE = 'นักท่องเที่ยว'
