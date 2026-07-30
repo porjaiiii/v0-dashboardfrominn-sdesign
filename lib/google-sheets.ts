@@ -9,7 +9,19 @@
  * ทั้งสองช่องทางคืนค่าเป็น string[][] โดยแถวแรกคือหัวคอลัมน์
  */
 
-const SHEETS_API_KEY = process.env.GOOGLE_SHEETS_API_KEY
+/**
+ * อ่านค่าจาก env โดยตัดช่องว่างหัวท้าย และถือว่า "ค่าว่าง" = ไม่ได้ตั้งค่า
+ *
+ * จำเป็นเพราะค่าที่ paste ลงหน้า Environment Variables ของ Vercel มักติด
+ * ช่องว่าง/ขึ้นบรรทัดใหม่มาด้วย ซึ่ง " " เป็น truthy ใน JS จึงไป override
+ * ค่า default ที่ถูกต้องแบบเงียบ ๆ (ในเครื่องเราค่าเป็นว่างจริงจึง fallback ถูก)
+ */
+export function readEnv(name: string): string | undefined {
+  const value = process.env[name]?.trim()
+  return value ? value : undefined
+}
+
+const SHEETS_API_KEY = readEnv('GOOGLE_SHEETS_API_KEY')
 
 export interface ReadTabOptions {
   /**
@@ -27,13 +39,30 @@ function hasExpectedHeaders(headers: string[], expect?: string[]): boolean {
   return expect.some((e) => norm.some((h) => h.includes(e.toLowerCase())))
 }
 
+/** ตัดข้อความยาว ๆ ให้พอเห็นเค้าโครง (ใช้ในข้อความ error) */
+function snippet(text: string, max = 200): string {
+  const flat = text.replace(/\s+/g, ' ').trim()
+  return flat.length > max ? `${flat.slice(0, max)}…` : flat
+}
+
 // ─── ช่องทางที่ 1: Sheets API v4 (ต้องมี API key) ───────────────────────────
 async function readViaApi(sheetId: string, tab: string): Promise<string[][]> {
   const url =
     `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(tab)}` +
     `?key=${SHEETS_API_KEY}`
   const res = await fetch(url, { cache: 'no-store' })
-  if (!res.ok) throw new Error(`Sheets API read "${tab}" failed: ${res.status}`)
+  if (!res.ok) {
+    // Google ส่งเหตุผลมาใน body เสมอ (เช่น key ถูกจำกัด referrer, ยังไม่เปิดใช้ Sheets API)
+    // อย่าใส่ url ลงใน error เพราะมี API key ติดไปด้วย
+    const body = await res.text().catch(() => '')
+    let reason = snippet(body)
+    try {
+      reason = JSON.parse(body)?.error?.message ?? reason
+    } catch {
+      /* body ไม่ใช่ JSON — ใช้ snippet ตามเดิม */
+    }
+    throw new Error(`Sheets API read "${tab}" failed: ${res.status} ${reason}`)
+  }
   const json = await res.json()
   return (json.values ?? []) as string[][]
 }
@@ -64,11 +93,23 @@ async function readViaPublicGviz(sheetId: string, tab: string): Promise<string[]
     `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq` +
     `?tqx=out:json&headers=1&sheet=${encodeURIComponent(tab)}`
   const res = await fetch(url, { cache: 'no-store' })
-  if (!res.ok) throw new Error(`Public sheet read "${tab}" failed: ${res.status}`)
+  if (!res.ok) {
+    throw new Error(
+      `Public sheet read "${tab}" failed: ${res.status} (final url: ${res.url})`,
+    )
+  }
 
   const text = await res.text()
   const match = text.match(/setResponse\(([\s\S]*)\)/)
-  if (!match) throw new Error(`Public sheet read "${tab}": unexpected response`)
+  if (!match) {
+    // เกิดได้เมื่อ Google เปลี่ยนไปตอบเป็นหน้า HTML (ล็อกอิน / captcha / rate limit)
+    // ซึ่งมักเกิดกับ IP ของ datacenter มากกว่าเครื่องที่รันในบ้าน
+    throw new Error(
+      `Public sheet read "${tab}": unexpected response ` +
+        `(status ${res.status}, content-type ${res.headers.get('content-type') ?? 'unknown'}, ` +
+        `final url: ${res.url}) — body: ${snippet(text)}`,
+    )
+  }
 
   const json = JSON.parse(match[1])
   if (json.status !== 'ok') {

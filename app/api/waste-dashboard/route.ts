@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readTab } from '@/lib/google-sheets'
+import { readTab, readEnv, usingApiKey } from '@/lib/google-sheets'
 
 // ─── Environment Variables & Constants ──────────────────────────────────────
-const SPREADSHEET_ID = process.env.REGISTRATION_SHEETS_ID || '1vvBe_ZySfSq4oP8tfwHDUg-Jo3gBr9QanQWqLATAkNE'
+const SPREADSHEET_ID = readEnv('REGISTRATION_SHEETS_ID') || '1vvBe_ZySfSq4oP8tfwHDUg-Jo3gBr9QanQWqLATAkNE'
 
 const REG_TAB = 'Registration'
 const SUBMISSION_TAB = 'submission'
@@ -111,7 +111,15 @@ export async function GET(request: NextRequest) {
     if (submissionRowsResult.status === 'rejected') {
       console.error('[dashboard] submission read error:', submissionRowsResult.reason)
       return NextResponse.json(
-        { error: `Failed to read "${SUBMISSION_TAB}" tab from the spreadsheet` },
+        {
+          error: `Failed to read "${SUBMISSION_TAB}" tab from the spreadsheet`,
+          // บอกสาเหตุจริงมาด้วย ไม่งั้นแยกไม่ออกว่าพังตรงไหนเวลา deploy แล้วเจอปัญหา
+          detail: submissionRowsResult.reason instanceof Error
+            ? submissionRowsResult.reason.message
+            : String(submissionRowsResult.reason),
+          via: usingApiKey ? 'sheets-api' : 'gviz',
+          spreadsheetId: SPREADSHEET_ID,
+        },
         { status: 502 }
       )
     }

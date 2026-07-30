@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readTab } from '@/lib/google-sheets'
+import { readTab, readEnv, usingApiKey } from '@/lib/google-sheets'
 
 // ─── Environment Variables & Constants ──────────────────────────────────────
 const DEFAULT_SHEET_ID = '1vvBe_ZySfSq4oP8tfwHDUg-Jo3gBr9QanQWqLATAkNE'
 
-const REG_SHEETS_ID = process.env.REGISTRATION_SHEETS_ID || DEFAULT_SHEET_ID
+const REG_SHEETS_ID = readEnv('REGISTRATION_SHEETS_ID') || DEFAULT_SHEET_ID
 /** ประวัติขยะอยู่ในไฟล์เดียวกับ Registration (ตั้ง POINTS_SPREADSHEET_ID เพื่อแยกไฟล์ได้) */
-const WASTE_SHEET_ID = process.env.POINTS_SPREADSHEET_ID || REG_SHEETS_ID
+const WASTE_SHEET_ID = readEnv('POINTS_SPREADSHEET_ID') || REG_SHEETS_ID
 
 const REG_TAB = 'Registration'
 const TOURIST_USER_TYPE = 'นักท่องเที่ยว'
 
 // Tab หลักสำหรับเก็บประวัติขยะ
-const WASTE_TAB = process.env.WASTE_SUBMISSION_TAB || 'submission'
+const WASTE_TAB = readEnv('WASTE_SUBMISSION_TAB') || 'submission'
 
 // หัวคอลัมน์ที่ต้องเจอ ใช้ยืนยันว่าอ่านถูกแท็บ
 const REG_HEADERS = ['line user id', 'ตำบล']
@@ -118,7 +118,15 @@ export async function GET(request: NextRequest) {
     if (wasteRowsResult.status === 'rejected') {
       console.error('[waste-dashboard] waste tab read error:', wasteRowsResult.reason)
       return NextResponse.json(
-        { error: `Failed to read "${WASTE_TAB}" tab from the spreadsheet` },
+        {
+          error: `Failed to read "${WASTE_TAB}" tab from the spreadsheet`,
+          // บอกสาเหตุจริงมาด้วย ไม่งั้นแยกไม่ออกว่าพังตรงไหนเวลา deploy แล้วเจอปัญหา
+          detail: wasteRowsResult.reason instanceof Error
+            ? wasteRowsResult.reason.message
+            : String(wasteRowsResult.reason),
+          via: usingApiKey ? 'sheets-api' : 'gviz',
+          spreadsheetId: WASTE_SHEET_ID,
+        },
         { status: 502 }
       )
     }
