@@ -10,17 +10,22 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import Image from 'next/image'
+import SelectPill from '@/components/ui/SelectPill'
+import {
+  COLORS,
+  WASTE_COLORS,
+  axisCaptionStyle,
+  axisTickStyle,
+  cardTitleStyle,
+  fontStyle,
+  tooltipStyle,
+} from '@/lib/design-tokens'
 
 interface WasteRecord {
   id: string
   date: string
   wasteType: string
   weight: number
-}
-
-const fontStyle = {
-  fontFamily: 'var(--font-ibm-plex-sans-thai), IBM Plex Sans Thai, sans-serif',
 }
 
 function formatYAxis(value: number) {
@@ -50,11 +55,37 @@ function matchCategory(typeStr: string): 'plastic' | 'glass' | 'paper' | 'alumin
   return 'other'
 }
 
+const TYPE_SERIES = [
+  { key: 'plastic', label: 'พลาสติก', color: WASTE_COLORS['พลาสติก'] },
+  { key: 'glass', label: 'แก้ว', color: WASTE_COLORS['แก้ว'] },
+  { key: 'paper', label: 'กระดาษ', color: WASTE_COLORS['กระดาษ'] },
+  { key: 'aluminium', label: 'อลูมิเนียม', color: WASTE_COLORS['อลูมิเนียม'] },
+] as const
+
+/** legend แบบจุดกลม จัดกึ่งกลางเหนือกราฟ ตามแบบ */
+function ChartLegend({ items }: { items: { label: string; color: string }[] }) {
+  return (
+    <div className="flex items-center justify-center" style={{ gap: 20, flexWrap: 'wrap' }}>
+      {items.map(({ label, color }) => (
+        <div key={label} className="flex items-center" style={{ gap: 7 }}>
+          <span
+            style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: color, flexShrink: 0 }}
+          />
+          <span style={{ color: COLORS.green, fontSize: 15, fontWeight: 600, ...fontStyle }}>
+            {label}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function AnnualWasteChart() {
   const [records, setRecords] = useState<WasteRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedYear, setSelectedYear] = useState('แสดงทุกปี')
-  const [open, setOpen] = useState(false)
+  /** true เมื่อผู้ใช้เลือกปีเอง — หลังจากนั้นจะไม่ตั้งค่าอัตโนมัติอีก */
+  const [yearPicked, setYearPicked] = useState(false)
 
   // 1. ดึงข้อมูลจริงจาก API
   useEffect(() => {
@@ -82,9 +113,16 @@ export default function AnnualWasteChart() {
       const y = getYearBE(r.date)
       if (y) yearsSet.add(y)
     })
-    const sortedYears = Array.from(yearsSet).sort((a, b) => Number(a) - Number(b))
+    const sortedYears = Array.from(yearsSet).sort((a, b) => Number(b) - Number(a))
     return ['แสดงทุกปี', ...sortedYears]
   }, [records])
+
+  // เมื่อข้อมูลโหลดเสร็จ ให้เลือกปีล่าสุดเป็นค่าเริ่มต้น (กราฟรายเดือนอ่านง่ายกว่าจุดเดียวต่อปี)
+  useEffect(() => {
+    if (yearPicked) return
+    const years = yearOptions.slice(1) // เรียงจากใหม่ไปเก่า
+    if (years.length > 0) setSelectedYear(years[0])
+  }, [yearOptions, yearPicked])
 
   // 3. ประมวลผลข้อมูลกราฟ (แยกตาม 'แสดงทุกปี' หรือ 'เลือกเฉพาะปี')
   const chartData = useMemo(() => {
@@ -163,203 +201,112 @@ export default function AnnualWasteChart() {
     }
   }, [records, selectedYear])
 
-  return (
-    <div
-      style={{
-        border: '2px solid rgba(0,0,0,0.2)',
-        borderRadius: 10,
-        padding: '10px 20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-      }}
-    >
-      {/* Header row */}
-      <div className="flex items-center" style={{ gap: 10 }}>
-        <span
-          style={{
-            color: '#154212',
-            fontSize: 24,
-            fontWeight: 600,
-            lineHeight: '39.6px',
-            flex: 1,
-            ...fontStyle,
-          }}
-        >
-          {selectedYear === 'แสดงทุกปี' ? 'ปริมาณขยะประจำปี' : `ปริมาณขยะประจำปี ${selectedYear}`}
-        </span>
+  const gridProps = {
+    stroke: COLORS.grid,
+    strokeWidth: 1,
+    vertical: true,
+    horizontal: true,
+  }
 
-        {/* Dropdown button */}
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => setOpen(!open)}
-            className="flex items-center"
-            style={{
-              gap: 10,
-              padding: '5px 20px',
-              border: '2px solid #154212',
-              borderRadius: 10,
-              backgroundColor: '#ffffff',
-              cursor: 'pointer',
-              ...fontStyle,
-              fontSize: 16,
-              fontWeight: 600,
-              color: '#154212',
-            }}
-          >
-            <span>{selectedYear}</span>
-            <Image src="/figma/tabler-icon-chevron-down.svg" alt="chevron" width={24} height={24} />
-          </button>
-          {open && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
-                backgroundColor: '#ffffff',
-                border: '2px solid #154212',
-                borderRadius: 10,
-                zIndex: 10,
-                maxHeight: 200,
-                overflowY: 'auto',
-              }}
-            >
-              {yearOptions.map((y) => (
-                <button
-                  key={y}
-                  onClick={() => {
-                    setSelectedYear(y)
-                    setOpen(false)
-                  }}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '6px 20px',
-                    textAlign: 'left',
-                    backgroundColor: selectedYear === y ? '#154212' : '#ffffff',
-                    color: selectedYear === y ? '#ffffff' : '#154212',
-                    border: 'none',
-                    cursor: 'pointer',
-                    ...fontStyle,
-                    fontSize: 16,
-                    fontWeight: 600,
-                  }}
-                >
-                  {y}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+  return (
+    <div className="flex flex-col" style={{ gap: 10 }}>
+      {/* หัวข้อ + dropdown เลือกปี */}
+      <div className="flex items-center" style={{ gap: 14 }}>
+        <h2 style={cardTitleStyle}>ปริมาณขยะประจำปี</h2>
+        <SelectPill
+          value={selectedYear}
+          options={yearOptions}
+          onChange={(y) => {
+            setYearPicked(true)
+            setSelectedYear(y)
+          }}
+        />
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-20 text-[#154212] font-semibold" style={fontStyle}>
+        <div
+          className="flex items-center justify-center"
+          style={{ height: 300, color: COLORS.green, fontWeight: 600, ...fontStyle }}
+        >
           กำลังโหลดข้อมูลกราฟ...
         </div>
       ) : (
         <>
-          {/* Chart 1: Total waste line */}
-          <div style={{ paddingTop: 20, paddingBottom: 20 }}>
-            {/* Legend */}
-            <div className="flex items-center" style={{ gap: 6, marginBottom: 8 }}>
-              <div style={{ width: 11, height: 11, borderRadius: '50%', backgroundColor: '#154212' }} />
-              <span style={{ color: '#154212', fontSize: 14.88, fontWeight: 600, ...fontStyle }}>
-                ขยะทั้งหมด (kg)
-              </span>
-            </div>
+          {/* กราฟที่ 1: ขยะทั้งหมด */}
+          <div style={{ paddingTop: 20 }}>
+            <ChartLegend items={[{ label: 'ขยะทั้งหมด', color: COLORS.green }]} />
+            <div style={{ ...axisCaptionStyle, marginTop: 16, marginBottom: 2 }}>น้ำหนัก (KG)</div>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={chartData} margin={{ top: 10, right: 10, left: 20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="" stroke="rgba(0,0,0,0.35)" strokeWidth={0.88} vertical={true} horizontal={true} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fill: '#154212', fontSize: 12.3, fontWeight: 600, fontFamily: 'IBM Plex Sans Thai, sans-serif' }}
-                  axisLine={false}
-                  tickLine={false}
-                />
+                <CartesianGrid {...gridProps} />
+                <XAxis dataKey="label" tick={axisTickStyle} axisLine={false} tickLine={false} />
                 <YAxis
                   tickFormatter={formatYAxis}
-                  tick={{ fill: '#154212', fontSize: 12.3, fontWeight: 600, fontFamily: 'IBM Plex Sans Thai, sans-serif' }}
+                  tick={axisTickStyle}
                   axisLine={false}
                   tickLine={false}
                   domain={[0, 'auto']}
                   width={60}
                 />
-                {/* เปลี่ยนจาก (value: number) เป็น (value: any) */}
-<Tooltip
-  formatter={(value: any) => [
-    `${Number(value || 0).toLocaleString()} kg`,
-    'ขยะทั้งหมด',
-  ]}
-  contentStyle={{ fontFamily: 'IBM Plex Sans Thai, sans-serif' }}
-/>
+                <Tooltip
+                  formatter={(value: any) => [
+                    `${Number(value || 0).toLocaleString()} KG`,
+                    'ขยะทั้งหมด',
+                  ]}
+                  contentStyle={tooltipStyle}
+                />
                 <Line
                   type="monotone"
                   dataKey="total"
-                  stroke="#154212"
+                  stroke={COLORS.green}
                   strokeWidth={2}
-                  dot={{ r: 3 }}
+                  dot={{ r: 3, strokeWidth: 0, fill: COLORS.green }}
                   activeDot={{ r: 5 }}
                 />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Chart 2: By type */}
-          <div style={{ paddingTop: 20, paddingBottom: 20 }}>
-            {/* Legend */}
-            <div className="flex items-center" style={{ gap: 12, marginBottom: 8 }}>
-              {[
-                { label: 'พลาสติก', color: '#6fc060' },
-                { label: 'แก้ว', color: '#89b9ea' },
-                { label: 'กระดาษ', color: '#c06060' },
-                { label: 'อลูมิเนียม', color: '#d7ce56' },
-              ].map(({ label, color }) => (
-                <div key={label} className="flex items-center" style={{ gap: 6 }}>
-                  <div style={{ width: 11, height: 11, borderRadius: '50%', backgroundColor: color }} />
-                  <span style={{ color: '#154212', fontSize: 14.88, fontWeight: 600, ...fontStyle }}>
-                    {label}
-                  </span>
-                </div>
-              ))}
-            </div>
+          {/* กราฟที่ 2: แยกตามประเภท */}
+          <div style={{ paddingTop: 40 }}>
+            <ChartLegend items={TYPE_SERIES.map((s) => ({ label: s.label, color: s.color }))} />
+            <div style={{ ...axisCaptionStyle, marginTop: 16, marginBottom: 2 }}>น้ำหนัก (KG)</div>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={chartData} margin={{ top: 10, right: 10, left: 20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="" stroke="rgba(0,0,0,0.35)" strokeWidth={0.88} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fill: '#154212', fontSize: 12.3, fontWeight: 600, fontFamily: 'IBM Plex Sans Thai, sans-serif' }}
-                  axisLine={false}
-                  tickLine={false}
-                />
+                <CartesianGrid {...gridProps} />
+                <XAxis dataKey="label" tick={axisTickStyle} axisLine={false} tickLine={false} />
                 <YAxis
                   tickFormatter={formatYAxis}
-                  tick={{ fill: '#154212', fontSize: 12.3, fontWeight: 600, fontFamily: 'IBM Plex Sans Thai, sans-serif' }}
+                  tick={axisTickStyle}
                   axisLine={false}
                   tickLine={false}
                   domain={[0, 'auto']}
                   width={60}
                 />
-             {/* เปลี่ยนจาก (value: number, name: string) เป็น (value: any, name: any) */}
-<Tooltip
-  formatter={(value: any, name: any) => {
-    const labels: Record<string, string> = {
-      plastic: 'พลาสติก',
-      glass: 'แก้ว',
-      paper: 'กระดาษ',
-      aluminium: 'อลูมิเนียม',
-    }
-    const key = String(name || '')
-    const num = Number(value || 0)
-    return [`${num.toLocaleString()} kg`, labels[key] || key]
-  }}
-  contentStyle={{ fontFamily: 'IBM Plex Sans Thai, sans-serif' }}
-/>
-                <Line type="monotone" dataKey="plastic" stroke="#6fc060" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                <Line type="monotone" dataKey="glass" stroke="#89b9ea" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                <Line type="monotone" dataKey="paper" stroke="#c06060" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                <Line type="monotone" dataKey="aluminium" stroke="#d7ce56" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                <Tooltip
+                  formatter={(value: any, name: any) => {
+                    const labels: Record<string, string> = {
+                      plastic: 'พลาสติก',
+                      glass: 'แก้ว',
+                      paper: 'กระดาษ',
+                      aluminium: 'อลูมิเนียม',
+                    }
+                    const key = String(name || '')
+                    return [`${Number(value || 0).toLocaleString()} KG`, labels[key] || key]
+                  }}
+                  contentStyle={tooltipStyle}
+                />
+                {TYPE_SERIES.map((s) => (
+                  <Line
+                    key={s.key}
+                    type="monotone"
+                    dataKey={s.key}
+                    stroke={s.color}
+                    strokeWidth={2}
+                    dot={{ r: 3, strokeWidth: 0, fill: s.color }}
+                    activeDot={{ r: 5 }}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -367,5 +314,4 @@ export default function AnnualWasteChart() {
       )}
     </div>
   )
-
 }

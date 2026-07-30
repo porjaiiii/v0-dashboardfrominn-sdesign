@@ -7,15 +7,13 @@ import Sidebar from '@/components/dashboard/Sidebar'
 import { useAuth } from '@/lib/auth-context'
 import { useLiff } from '@/lib/liff-context'
 import { WASTE_CATEGORIES, type MainCategory } from '@/lib/waste-types-data'
+import SelectPill from '@/components/ui/SelectPill'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer,
+  COLORS, axisTickStyle, fontStyle, pillStyle, tooltipStyle,
+} from '@/lib/design-tokens'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-
-// กำหนด Font Style มาตรฐานเพื่อใช้งานซ้ำได้ง่าย
-const fontStyle = {
-  fontFamily: 'var(--font-ibm-plex-sans-thai), IBM Plex Sans Thai, sans-serif',
-}
 
 const TAMBON_LIST_DATA = ['ทุกตำบล', 'บางกะเจ้า', 'บางยอ', 'บางกอบัว', 'บางกระสอบ', 'บางน้ำผึ้ง', 'ทรงคนอง']
 const MONTH_NAMES = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
@@ -200,7 +198,7 @@ export default function WasteTypesPage() {
   }
 
   return (
-    <div className="flex" style={{ minHeight: '100vh', backgroundColor: '#f8faf8', ...fontStyle }}>
+    <div className="flex" style={{ minHeight: '100vh', backgroundColor: COLORS.white, ...fontStyle }}>
       <Sidebar activePage="waste-types" />
 
       <div className="flex flex-col" style={{ flex: 1, minWidth: 0 }}>
@@ -210,8 +208,8 @@ export default function WasteTypesPage() {
           style={{
             height: 70,
             backgroundColor: '#ffffff',
-            borderBottom: '1px solid rgba(0,0,0,0.1)',
-            padding: '0 32px',
+            borderBottom: '1px solid rgba(0,0,0,0.2)',
+            padding: '0 20px',
             flexShrink: 0,
           }}
         >
@@ -258,7 +256,7 @@ export default function WasteTypesPage() {
                 </div>
                 <button onClick={handleLogout} style={{
                   display: 'block', width: '100%', padding: '10px 16px', textAlign: 'left',
-                  background: 'none', border: 'none', cursor: 'pointer', color: '#c06060', fontSize: 15, fontWeight: 600, ...fontStyle,
+                  background: 'none', border: 'none', cursor: 'pointer', color: COLORS.paper, fontSize: 15, fontWeight: 600, ...fontStyle,
                 }}>ออกจากระบบ</button>
               </div>
             )}
@@ -266,307 +264,281 @@ export default function WasteTypesPage() {
         </div>
 
         {/* Content */}
-        <main style={{ padding: '28px 36px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-          
-          {/* Header Title & Tambon Selectors */}
-          <div className="flex items-center justify-between" style={{ flexWrap: 'wrap', gap: 16 }}>
-            <div className="flex items-center" style={{ gap: 12 }}>
-              <h1 style={{ color: '#154212', fontSize: 26, fontWeight: 600, margin: 0, lineHeight: '36px', ...fontStyle }}>
-                ปริมาณขยะแยกตามประเภท
-              </h1>
-              {isLoading && (
-                <span style={{ fontSize: 14, color: '#666', fontWeight: 500, ...fontStyle }}>กำลังโหลดข้อมูล...</span>
-              )}
-            </div>
+        <main style={{ padding: '20px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-            {/* Tambon Pills */}
-            <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
-              {TAMBON_LIST_DATA.map(t => {
-                const isSelected = tambon === t
-                const label = (t === 'ทุกตำบล' || t === 'ทั้งหมด') ? t : `ตำบล ${t}`
-                return (
-                  <button
-                    key={t}
-                    onClick={() => setTambon(t)}
-                    style={{
-                      padding: '6px 18px',
-                      borderRadius: 10,
-                      fontSize: 15,
-                      fontWeight: 600,
-                      border: '2px solid #154212',
-                      backgroundColor: isSelected ? '#154212' : 'rgba(255,255,255,0.6)',
-                      color: isSelected ? '#ffffff' : '#154212',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease-in-out',
-                      ...fontStyle,
-                    }}
-                  >
-                    {label}
-                  </button>
-                )
-              })}
-            </div>
+          {/* หัวข้อหน้า */}
+          <div className="flex items-center" style={{ gap: 12 }}>
+            <h1 style={{ color: COLORS.green, fontSize: 24, fontWeight: 600, margin: 0, lineHeight: '36px', ...fontStyle }}>
+              ปริมาณขยะแยกตามประเภท
+            </h1>
+            {isLoading && (
+              <span style={{ fontSize: 14, color: COLORS.green, fontWeight: 500, ...fontStyle }}>
+                กำลังโหลดข้อมูล...
+              </span>
+            )}
           </div>
 
-          {/* Main Category Tabs (🟢 เอา CategoryIcon ออก) */}
-          <div className="flex" style={{ gap: 12, flexWrap: 'wrap' }}>
-            {WASTE_CATEGORIES.map(cat => {
-              const isActive = activeCat === cat.id
-
-              const themeColor =
-                cat.id === 'plastic' ? '#6fc060' :
-                cat.id === 'glass' ? '#89b9ea' :
-                cat.id === 'paper' ? '#c06060' : '#d7ce56'
-
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCat(cat.id as MainCategory)}
-                  style={{
-                    padding: '10px 24px',
-                    borderRadius: 10,
-                    cursor: 'pointer',
-                    border: `2px solid ${isActive ? themeColor : 'rgba(0,0,0,0.15)'}`,
-                    backgroundColor: isActive ? themeColor : '#ffffff',
-                    color: isActive ? '#ffffff' : '#154212',
-                    fontWeight: 600,
-                    fontSize: 16,
-                    ...fontStyle,
-                    transition: 'all 0.15s ease-in-out',
-                    boxShadow: isActive ? '0 4px 12px rgba(0,0,0,0.1)' : 'none',
-                  }}
-                >
-                  {cat.label}
-                </button>
-              )
-            })}
+          {/* แถบเลือกตำบล — กว้างคงที่ 102px เว้นระยะ 38px ตามแบบ */}
+          <div className="flex" style={{ gap: '12px 38px', flexWrap: 'wrap' }}>
+            {TAMBON_LIST_DATA.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTambon(t)}
+                style={pillStyle(tambon === t, COLORS.green, { minWidth: 102, paddingX: 12 })}
+              >
+                {t}
+              </button>
+            ))}
           </div>
 
-          {/* Sub-type Insight Cards & Total Card */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
-            {/* การ์ดประเภทย่อยแต่ละประเภท */}
-            {activeCatInfo.subtypes.map(sub => {
+          {/* แถบเลือกประเภทขยะ — สีปุ่มที่เลือกใช้สีประจำประเภท */}
+          <div className="flex" style={{ gap: 20, flexWrap: 'wrap' }}>
+            {WASTE_CATEGORIES.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setActiveCat(cat.id as MainCategory)}
+                style={pillStyle(activeCat === cat.id, cat.color, { minWidth: 130 })}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* การ์ดสรุปประเภทย่อย + การ์ดรวมทั้งหมด */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(222px, 1fr))',
+              gap: 20,
+            }}
+          >
+            {activeCatInfo.subtypes.map((sub) => {
               const kg = totals[sub.id] ?? 0
               const pct = grandTotal > 0 ? Math.round((kg / grandTotal) * 100) : 0
 
-              const currentCatColor =
-                activeCat === 'plastic' ? '#6fc060' :
-                activeCat === 'glass' ? '#89b9ea' :
-                activeCat === 'paper' ? '#c06060' : '#d7ce56'
-
               return (
-                <div
+                <InsightCard
                   key={sub.id}
-                  style={{
-                    backgroundColor: '#ffffff',
-                    border: '2px solid rgba(0,0,0,0.12)',
-                    borderRadius: 12,
-                    padding: '18px 20px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 12,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                  }}
-                >
-                  <div className="flex items-center" style={{ gap: 10 }}>
-                    <div
-                      style={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: '50%',
-                        backgroundColor: sub.color || currentCatColor,
-                        flexShrink: 0,
-                      }}
-                    />
-                    <div>
-                      <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#154212', lineHeight: '22px', ...fontStyle }}>
-                        {sub.name}
-                      </p>
-                      <p style={{ margin: 0, fontSize: 13, color: '#557551', fontWeight: 500, ...fontStyle }}>
-                        {sub.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <span style={{ fontSize: 32, fontWeight: 700, color: '#154212', ...fontStyle }}>
-                      {kg.toLocaleString()}
-                    </span>
-                    <span style={{ fontSize: 15, color: '#557551', fontWeight: 600, marginLeft: 6, ...fontStyle }}>
-                      กิโลกรัม
-                    </span>
-                  </div>
-
-                  <div>
-                    <div style={{ height: 8, backgroundColor: '#e8ece8', borderRadius: 4, overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          height: '100%',
-                          width: `${pct}%`,
-                          backgroundColor: sub.color || currentCatColor,
-                          borderRadius: 4,
-                          transition: 'width 0.4s ease',
-                        }}
-                      />
-                    </div>
-                    <p style={{ margin: '6px 0 0', fontSize: 13, color: '#557551', fontWeight: 500, ...fontStyle }}>
-                      {pct}% ของรวมทั้งประเภท
-                    </p>
-                  </div>
-                </div>
+                  dotColor={sub.color || activeCatInfo.color}
+                  title={sub.name}
+                  subtitle={sub.description}
+                  value={kg}
+                  barColor={sub.color || activeCatInfo.color}
+                  pct={pct}
+                  caption={`${pct}% ของรวมทั้งประเภท`}
+                />
               )
             })}
 
-            {/* 🟢 การ์ดสรุปยอดรวมน้ำหนักของทุกประเภทย่อย (วางไว้ต่อท้าย) */}
-            <div
-              style={{
-                backgroundColor: '#154212',
-                color: '#ffffff',
-                border: '2px solid #154212',
-                borderRadius: 12,
-                padding: '18px 20px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 12,
-                boxShadow: '0 4px 12px rgba(21, 66, 18, 0.15)',
-              }}
+            {/* การ์ดสรุปยอดรวมของทุกประเภทย่อย */}
+            <InsightCard
+              dark
+              dotColor={COLORS.accent}
+              title="รวมทั้งหมด"
+              subtitle="ยอดรวมทุกประเภทย่อย"
+              value={grandTotal}
+              barColor={COLORS.accent}
+              pct={100}
+              caption="100% สรุปภาพรวมประเภท"
+            />
+          </div>
+
+          {/* หัวข้อกราฟ + dropdown เลือกปี */}
+          <div className="flex flex-wrap items-center" style={{ gap: 14, marginTop: 4 }}>
+            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: COLORS.green, lineHeight: '32px', ...fontStyle }}>
+              รายงานน้ำหนักขยะจำแนกประเภทรายเดือน (
+              {tambon === 'ทุกตำบล' || tambon === 'ทั้งหมด' ? 'ภาพรวมทุกตำบล' : `ตำบล ${tambon}`})
+            </h2>
+            <div style={{ marginLeft: 'auto' }}>
+              <SelectPill
+                value={String(year)}
+                options={YEAR_OPTIONS.map((y) => ({ value: String(y), label: String(y) }))}
+                onChange={(v) => setYear(Number(v))}
+                minWidth={143}
+                align="right"
+              />
+            </div>
+          </div>
+
+          {/* กราฟแท่งแนวนอน */}
+          <ResponsiveContainer width="100%" height={420}>
+            <BarChart
+              layout="vertical"
+              data={chartData}
+              margin={{ top: 0, right: 30, left: 10, bottom: 26 }}
+              barCategoryGap="24%"
             >
-              <div className="flex items-center" style={{ gap: 10 }}>
-                <div
+              <CartesianGrid stroke={COLORS.grid} strokeWidth={1} />
+              <XAxis
+                type="number"
+                tickLine={false}
+                axisLine={false}
+                tick={axisTickStyle}
+                label={{
+                  value: 'น้ำหนัก (KG)',
+                  position: 'insideBottom',
+                  offset: -16,
+                  style: {
+                    fontFamily: 'IBM Plex Sans Thai, sans-serif',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    fill: COLORS.green,
+                  },
+                }}
+              />
+              <YAxis
+                type="category"
+                dataKey="month"
+                tickLine={false}
+                axisLine={false}
+                tick={axisTickStyle}
+                width={55}
+              />
+              <Tooltip
+                formatter={(v, name) => [`${Number(v || 0).toLocaleString()} KG`, String(name || '')]}
+                contentStyle={tooltipStyle}
+              />
+              {activeCatInfo.subtypes.map((sub) => (
+                <Bar key={sub.id} dataKey={sub.id} name={sub.name} stackId="a" fill={sub.color} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+
+          {/* คำอธิบายสี — ใต้กราฟ จัดกึ่งกลาง ตามแบบ */}
+          <div className="flex items-center justify-center" style={{ gap: 20, flexWrap: 'wrap' }}>
+            {activeCatInfo.subtypes.map((sub) => (
+              <div key={sub.id} className="flex items-center" style={{ gap: 7 }}>
+                <span
                   style={{
                     width: 12,
                     height: 12,
                     borderRadius: '50%',
-                    backgroundColor: '#6fc060',
+                    backgroundColor: sub.color,
                     flexShrink: 0,
                   }}
                 />
-                <div>
-                  <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#ffffff', lineHeight: '22px', ...fontStyle }}>
-                    รวม {activeCatInfo.label} ทั้งหมด
-                  </p>
-                  <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 500, ...fontStyle }}>
-                    ยอดรวมทุกประเภทย่อย
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <span style={{ fontSize: 32, fontWeight: 700, color: '#ffffff', ...fontStyle }}>
-                  {grandTotal.toLocaleString()}
-                </span>
-                <span style={{ fontSize: 15, color: 'rgba(255,255,255,0.8)', fontWeight: 600, marginLeft: 6, ...fontStyle }}>
-                  กิโลกรัม
+                <span style={{ color: COLORS.green, fontSize: 15, fontWeight: 600, ...fontStyle }}>
+                  {sub.name}
                 </span>
               </div>
-
-              <div>
-                <div style={{ height: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4, overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      height: '100%',
-                      width: '100%',
-                      backgroundColor: '#6fc060',
-                      borderRadius: 4,
-                    }}
-                  />
-                </div>
-                <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 500, ...fontStyle }}>
-                  100% สรุปภาพรวมประเภท
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
 
-          {/* Bar Chart Container */}
+          {/* ปุ่มส่งออก */}
+          <div className="flex justify-end">
+            <button type="button" onClick={() => window.print()} style={pillStyle(false)}>
+              ส่งออกเป็น pdf
+            </button>
+          </div>
+        </main>
+      </div>
+    </div>
+  )
+}
+
+/** จัดรูปแบบน้ำหนักแบบเดียวกับการ์ดสถิติหน้าแรก — ทศนิยมไม่เกิน 1 ตำแหน่ง */
+function formatKg(value: number) {
+  return value.toLocaleString('th-TH', { maximumFractionDigits: 1 })
+}
+
+interface InsightCardProps {
+  dotColor: string
+  title: string
+  subtitle: string
+  value: number
+  barColor: string
+  pct: number
+  caption: string
+  dark?: boolean
+}
+
+/** การ์ดสรุปตามแบบ: ขอบเทา 1px มุมมน 10 — จุดสี + ชื่อ/คำอธิบาย, ตัวเลข, แถบ progress, คำกำกับ */
+function InsightCard({
+  dotColor,
+  title,
+  subtitle,
+  value,
+  barColor,
+  pct,
+  caption,
+  dark = false,
+}: InsightCardProps) {
+  const text = dark ? COLORS.white : COLORS.green
+  return (
+    <div
+      style={{
+        backgroundColor: dark ? COLORS.green : COLORS.white,
+        border: `1px solid ${dark ? COLORS.green : COLORS.border}`,
+        borderRadius: 10,
+        padding: '15px 20px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        minWidth: 0,
+        ...fontStyle,
+      }}
+    >
+      <div className="flex items-center" style={{ gap: 18 }}>
+        <span
+          style={{
+            width: 13,
+            height: 13,
+            borderRadius: '50%',
+            backgroundColor: dotColor,
+            flexShrink: 0,
+          }}
+        />
+        <div style={{ minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: text, lineHeight: '22px', ...fontStyle }}>
+            {title}
+          </p>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 400, color: text, lineHeight: '17px', ...fontStyle }}>
+            {subtitle}
+          </p>
+        </div>
+      </div>
+
+      {/* flexWrap กัน "กิโลกรัม" ล้นออกนอกการ์ดเมื่อตัวเลขยาว */}
+      <div className="flex items-baseline" style={{ gap: 8, flexWrap: 'wrap' }}>
+        <span
+          style={{
+            fontSize: 36,
+            fontWeight: 600,
+            color: text,
+            lineHeight: '36px',
+            whiteSpace: 'nowrap',
+            ...fontStyle,
+          }}
+        >
+          {formatKg(value)}
+        </span>
+        <span style={{ fontSize: 16, fontWeight: 600, color: text, ...fontStyle }}>กิโลกรัม</span>
+      </div>
+
+      <div>
+        <div
+          style={{
+            height: 6,
+            backgroundColor: dark ? 'rgba(255,255,255,0.25)' : COLORS.track,
+            borderRadius: 3,
+            overflow: 'hidden',
+          }}
+        >
           <div
             style={{
-              backgroundColor: '#ffffff',
-              border: '2px solid rgba(0,0,0,0.15)',
-              borderRadius: 12,
-              padding: '24px 28px',
+              height: '100%',
+              width: `${Math.min(100, Math.max(0, pct))}%`,
+              backgroundColor: barColor,
+              borderRadius: 3,
+              transition: 'width 0.4s ease',
             }}
-          >
-            <div className="flex items-center justify-between" style={{ marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: '#154212', ...fontStyle }}>
-                รายงานน้ำหนักขยะจำแนกประเภทรายเดือน ({(tambon === 'ทุกตำบล' || tambon === 'ทั้งหมด') ? 'ภาพรวมทุกตำบล' : `ตำบล ${tambon}`})
-              </h2>
-
-              {/* 🟢 Dropdown สำหรับเลือกปี พ.ศ. */}
-              <div className="flex items-center" style={{ gap: 8 }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: '#154212', ...fontStyle }}>เลือกปี:</span>
-                <select
-                  value={year}
-                  onChange={(e) => setYear(Number(e.target.value))}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: 8,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    border: '2px solid #154212',
-                    color: '#154212',
-                    backgroundColor: 'rgba(21, 66, 18, 0.05)',
-                    cursor: 'pointer',
-                    outline: 'none',
-                    ...fontStyle,
-                  }}
-                >
-                  {YEAR_OPTIONS.map((y) => (
-                    <option key={y} value={y}>
-                      ปี พ.ศ. {y}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <ResponsiveContainer width="100%" height={380}>
-              <BarChart
-                layout="vertical"
-                data={chartData}
-                margin={{ top: 0, right: 30, left: 10, bottom: 10 }}
-                barSize={18}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
-                <XAxis
-                  type="number"
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 13, fill: '#666', fontFamily: fontStyle.fontFamily, fontWeight: 500 }}
-                  label={{ value: 'น้ำหนัก (KG)', position: 'insideBottom', offset: -4, fontSize: 13, fill: '#154212', fontFamily: fontStyle.fontFamily, fontWeight: 600 }}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="month"
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 13, fill: '#154212', fontFamily: fontStyle.fontFamily, fontWeight: 600 }}
-                  width={55}
-                />
-                <Tooltip
-                  formatter={(v, name) => [`${Number(v || 0).toLocaleString()} KG`, String(name || '')]}
-                  contentStyle={{ borderRadius: 10, fontSize: 14, fontFamily: fontStyle.fontFamily, border: '2px solid #154212' }}
-                />
-                <Legend
-                  iconType="circle"
-                  iconSize={10}
-                  wrapperStyle={{ fontSize: 14, fontFamily: fontStyle.fontFamily, fontWeight: 600, color: '#154212', paddingTop: 14 }}
-                />
-                {activeCatInfo.subtypes.map((sub, index) => (
-                  <Bar
-                    key={sub.id}
-                    dataKey={sub.id}
-                    name={sub.name}
-                    stackId="a"
-                    fill={sub.color}
-                    radius={index === activeCatInfo.subtypes.length - 1 ? [0, 4, 4, 0] : [0, 0, 0, 0]}
-                  />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-        </main>
+          />
+        </div>
+        <p style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 400, color: text, ...fontStyle }}>
+          {caption}
+        </p>
       </div>
     </div>
   )

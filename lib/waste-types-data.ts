@@ -16,52 +16,58 @@ export interface MainCategoryInfo {
   subtypes: WasteSubType[]
 }
 
+/**
+ * ลำดับและสีตามไฟล์ออกแบบ (sao.png)
+ * - `color` = สีประจำประเภท (ใช้กับแท็บที่ถูกเลือก) เป็นสีเข้มชุดเดียวกับการ์ดสถิติ
+ * - `subtypes[].color` = สีเฉดอ่อนของประเภทนั้น ใช้กับกราฟแท่งและแถบ progress
+ *   (ค่าของหมวด "แก้ว" ถอดมาจากแบบโดยตรง หมวดอื่นไล่เฉดด้วยหลักการเดียวกัน)
+ */
 export const WASTE_CATEGORIES: MainCategoryInfo[] = [
   {
     id: 'plastic',
     label: 'พลาสติก',
-    color: '#2d7a1f',
+    color: '#1b8014',
     bgColor: '#f0f9ee',
     borderColor: '#b8d8b2',
     subtypes: [
-      { id: 'pet',   name: 'ขวดน้ำพลาสติกใส',   description: 'PET',  color: '#4caf50' },
-      { id: 'hdpe',  name: 'ขวดน้ำพลาสติกขุ่น',  description: 'HDPE', color: '#66bb6a' },
-      { id: 'ldpe',  name: 'ฝาขวดน้ำพลาสติก',    description: 'LDPE', color: '#81c784' },
-    ],
-  },
-  {
-    id: 'paper',
-    label: 'กระดาษ',
-    color: '#b33a3a',
-    bgColor: '#fff5f5',
-    borderColor: '#e8b4b4',
-    subtypes: [
-      { id: 'cardboard', name: 'กระดาษลัง',              description: 'กล่อง', color: '#e57373' },
-      { id: 'a4',        name: 'กระดาษสีขาว / A4',       description: 'A4',    color: '#ef9a9a' },
-      { id: 'mixed',     name: 'นิตยสาร / หนังสือพิมพ์', description: 'รวม',   color: '#ffcdd2' },
+      { id: 'pet',   name: 'ขวดน้ำพลาสติกใส',   description: 'PET',  color: '#6fc060' },
+      { id: 'hdpe',  name: 'ขวดน้ำพลาสติกขุ่น',  description: 'HDPE', color: '#8ccd7f' },
+      { id: 'ldpe',  name: 'ฝาขวดน้ำพลาสติก',    description: 'LDPE', color: '#a9daa0' },
     ],
   },
   {
     id: 'glass',
     label: 'แก้ว',
-    color: '#1a6898',
+    color: '#203a99',
     bgColor: '#f0f6fd',
     borderColor: '#a8c8e8',
     subtypes: [
-      { id: 'clear',   name: 'ขวดแก้วครบลัง', description: 'ประเภทเดียวกัน', color: '#64b5f6' },
-      { id: 'colored', name: 'ขวดแก้วรวม',    description: 'หลายประเภท',     color: '#90caf9' },
+      { id: 'clear',   name: 'ขวดแก้วครบลัง', description: 'ประเภทเดียวกัน', color: '#89b9ea' },
+      { id: 'colored', name: 'ขวดแก้วรวม',    description: 'หลายประเภท',     color: '#a1c7ee' },
+    ],
+  },
+  {
+    id: 'paper',
+    label: 'กระดาษ',
+    color: '#b02e0d',
+    bgColor: '#fff5f5',
+    borderColor: '#e8b4b4',
+    subtypes: [
+      { id: 'cardboard', name: 'กระดาษลัง',              description: 'กล่อง', color: '#c06060' },
+      { id: 'a4',        name: 'กระดาษสีขาว / A4',       description: 'A4',    color: '#d08585' },
+      { id: 'mixed',     name: 'นิตยสาร / หนังสือพิมพ์', description: 'รวม',   color: '#e0aaaa' },
     ],
   },
   {
     id: 'aluminum',
     label: 'อลูมิเนียม',
-    color: '#9a7e10',
+    color: '#e4ca00',
     bgColor: '#fffbea',
     borderColor: '#e8d898',
     subtypes: [
-      { id: 'can',   name: 'กระป๋องอลูมิเนียม', description: 'กระป๋องดื่ม', color: '#fdd835' },
-      { id: 'plate', name: 'ฝาอลูมิเนียม',       description: 'ฝากระป๋อง',  color: '#ffee58' },
-      { id: 'scrap', name: 'เศษอลูมิเนียม',      description: 'เศษโลหะ',    color: '#fff176' },
+      { id: 'can',   name: 'กระป๋องอลูมิเนียม', description: 'กระป๋องดื่ม', color: '#d7ce56' },
+      { id: 'plate', name: 'ฝาอลูมิเนียม',       description: 'ฝากระป๋อง',  color: '#e2db7d' },
+      { id: 'scrap', name: 'เศษอลูมิเนียม',      description: 'เศษโลหะ',    color: '#ede8a4' },
     ],
   },
 ]

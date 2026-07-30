@@ -11,17 +11,15 @@ import WasteTypeChart from '@/components/dashboard/WasteTypeChart'
 import MonthlyWasteChart from '@/components/dashboard/MonthlyWasteChart'
 import { useAuth } from '@/lib/auth-context'
 import { useLiff } from '@/lib/liff-context'
-
-const fontStyle = {
-  fontFamily: 'var(--font-ibm-plex-sans-thai), IBM Plex Sans Thai, sans-serif',
-}
+import { COLORS, cardStyle, fontStyle, pillStyle } from '@/lib/design-tokens'
 
 export default function Home() {
   const router = useRouter()
   const { emailUser, emailLogout } = useAuth()
   const { isLiffReady, isLoggedIn: liffLoggedIn, profile: liffProfile, liffLogout } = useLiff()
 
-  const [selectedDistrict, setSelectedDistrict] = useState('บางกะเจ้า')
+  // ค่าเริ่มต้น "ทุกตำบล" ตามแบบ (แผนที่เขียวทั้งเกาะ, dropdown โดนัทแสดง "ทั้งหมด")
+  const [selectedDistrict, setSelectedDistrict] = useState('ทุกตำบล')
   const [profileOpen, setProfileOpen] = useState(false)
 
   const [chartType, setChartType] = useState<'donut' | 'bar'>('donut')
@@ -191,7 +189,7 @@ export default function Home() {
                     background: 'none',
                     border: 'none',
                     cursor: 'pointer',
-                    color: '#c06060',
+                    color: COLORS.paper,
                     fontSize: 14,
                     fontWeight: 600,
                     ...fontStyle,
@@ -231,92 +229,54 @@ export default function Home() {
           {/* Stat cards */}
           <StatCards />
 
-          {/* Annual waste chart */}
-          <AnnualWasteChart />
-          {/* Section Header + Toggle Switch Button */}
-          <div className="flex items-center justify-between" style={{ marginTop: 10 }}>
-            <span
-              style={{
-                color: '#154212',
-                fontSize: 22,
-                fontWeight: 600,
-                ...fontStyle,
-              }}
-            >
-              สถิติขยะแยกตามพื้นที่และประเภท
-            </span>
+          {/* การ์ดใหญ่ตามแบบ: กราฟรายปี + แถวแผนที่/โดนัท อยู่ในกรอบเดียวกัน */}
+          <div
+            style={{
+              ...cardStyle,
+              padding: '10px 20px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 20,
+            }}
+          >
+            <AnnualWasteChart />
 
-            {/* ปุ่ม Toggle สลับมุมมอง */}
-            <div
-              style={{
-                display: 'flex',
-                backgroundColor: '#ffffff',
-                border: '2px solid #154212',
-                borderRadius: 10,
-                padding: 3,
-                gap: 4,
-              }}
-            >
+            {/* ปุ่มสลับมุมมอง โดนัท / แท่ง */}
+            <div className="flex justify-end" style={{ gap: 10 }}>
               <button
+                type="button"
                 onClick={() => setChartType('donut')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: 7,
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  backgroundColor: chartType === 'donut' ? '#154212' : 'transparent',
-                  color: chartType === 'donut' ? '#ffffff' : '#154212',
-                  transition: 'all 0.2s ease',
-                  ...fontStyle,
-                }}
+                style={pillStyle(chartType === 'donut')}
               >
-                กราฟโดนัท 
+                กราฟโดนัท
               </button>
               <button
+                type="button"
                 onClick={() => setChartType('bar')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: 7,
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  backgroundColor: chartType === 'bar' ? '#154212' : 'transparent',
-                  color: chartType === 'bar' ? '#ffffff' : '#154212',
-                  transition: 'all 0.2s ease',
-                  ...fontStyle,
-                }}
+                style={pillStyle(chartType === 'bar')}
               >
-                กราฟแท่ง 
+                กราฟแท่ง
               </button>
             </div>
-          </div>
 
-          {/* Dynamic Layout ตามประเภทกราฟที่เลือก */}
-{chartType === 'donut' ? (
-  /* 1. โหมดกราฟโดนัท: แสดงแผนที่ และ โดนัทเคียงข้างกัน (ขนาดปกติ) */
-  <div 
-  id="map-section" 
-  className="flex" 
-  style={{ gap: 20, scrollMarginTop: 80 }}
->
-    <MapCard selectedDistrict={selectedDistrict} onSelect={setSelectedDistrict} />
-    <WasteTypeChart
-      selected={selectedDistrict}
-      onSelect={setSelectedDistrict}
-    />
-  </div>
-) : (
-  /* 2. โหมดกราฟแท่ง: คุมความสูงแผนที่ให้อยู่ในกรอบผืนผ้าใบแนวนอน (ไม่สูงเทอะทะ) */
-  <div className="flex flex-col" style={{ gap: 20 }}>
-    <div style={{ maxHeight: 320, overflow: 'hidden', borderRadius: 12, display: 'flex' }}>
-      <MapCard selectedDistrict={selectedDistrict} onSelect={setSelectedDistrict} />
-    </div>
-    <MonthlyWasteChart tambon={selectedDistrict} />
-  </div>
-)}
+            {chartType === 'donut' ? (
+              /* โหมดกราฟโดนัท: แผนที่ + โดนัท เคียงข้างกัน */
+              <div id="map-section" className="flex" style={{ gap: 20, scrollMarginTop: 80 }}>
+                <MapCard selectedDistrict={selectedDistrict} onSelect={setSelectedDistrict} />
+                <WasteTypeChart selected={selectedDistrict} onSelect={setSelectedDistrict} />
+              </div>
+            ) : (
+              /* โหมดกราฟแท่ง: วางแผนที่คู่กับกราฟแท่ง เพื่อให้เลือกตำบลแล้วเห็นกราฟเปลี่ยนได้ในหน้าจอเดียว */
+              <div id="map-section" className="flex" style={{ gap: 20, scrollMarginTop: 80 }}>
+                <div style={{ flex: 2, minWidth: 0, display: 'flex' }}>
+                  <MapCard selectedDistrict={selectedDistrict} onSelect={setSelectedDistrict} />
+                </div>
+                <div style={{ flex: 3, minWidth: 0, display: 'flex' }}>
+                  <MonthlyWasteChart tambon={selectedDistrict} />
+                </div>
+              </div>
+            )}
+          </div>
         </main>
       </div>
     </div>

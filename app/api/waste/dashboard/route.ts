@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { readTab } from '@/lib/google-sheets'
 
 // ─── Environment Variables & Constants ──────────────────────────────────────
-const POINTS_SPREADSHEET_ID = process.env.POINTS_SPREADSHEET_ID
-const SHEETS_API_KEY = process.env.GOOGLE_SHEETS_API_KEY
+const DEFAULT_SHEET_ID = '1vvBe_ZySfSq4oP8tfwHDUg-Jo3gBr9QanQWqLATAkNE'
 
-const REG_SHEETS_ID = process.env.REGISTRATION_SHEETS_ID || '1vvBe_ZySfSq4oP8tfwHDUg-Jo3gBr9QanQWqLATAkNE'
+const REG_SHEETS_ID = process.env.REGISTRATION_SHEETS_ID || DEFAULT_SHEET_ID
+/** ประวัติขยะอยู่ในไฟล์เดียวกับ Registration (ตั้ง POINTS_SPREADSHEET_ID เพื่อแยกไฟล์ได้) */
+const WASTE_SHEET_ID = process.env.POINTS_SPREADSHEET_ID || REG_SHEETS_ID
+
 const REG_TAB = 'Registration'
 const TOURIST_USER_TYPE = 'นักท่องเที่ยว'
 
 // Tab หลักสำหรับเก็บประวัติขยะ
-const PRIMARY_WASTE_TAB = 'co2_collection'
+const WASTE_TAB = process.env.WASTE_SUBMISSION_TAB || 'submission'
+
+// หัวคอลัมน์ที่ต้องเจอ ใช้ยืนยันว่าอ่านถูกแท็บ
+const REG_HEADERS = ['line user id', 'ตำบล']
+const WASTE_HEADERS = ['waste_type', 'weight_kg', 'weight']
+
+/** นับเฉพาะรายการที่ตรวจรับแล้ว ให้ตรงกับหน้า "ปริมาณขยะแยกตามประเภท" */
+const DONE_STATUS = 'done'
 
 export type WasteRecord = {
   id: string
@@ -54,23 +64,12 @@ function str(value: unknown): string {
   return value == null ? '' : String(value).trim()
 }
 
-// อ่านข้อมูลแถวทั้งหมดจาก Sheet Tab
-async function readTab(sheetId: string, tab: string): Promise<string[][]> {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(
-    tab
-  )}?key=${SHEETS_API_KEY}`
-  const res = await fetch(url, { cache: 'no-store' })
-  if (!res.ok) throw new Error(`Sheets ${tab} read failed: ${res.status}`)
-  const json = await res.json()
-  return (json.values ?? []) as string[][]
-}
-
 // ดึงข้อมูลโปรไฟล์ผู้ใช้ (ชื่อ, ตำบล, นักท่องเที่ยว) จาก Registration Sheet
 async function buildNameMap(): Promise<Record<string, UserInfo>> {
   const map: Record<string, UserInfo> = {}
-  if (!REG_SHEETS_ID || !SHEETS_API_KEY) return map
+  if (!REG_SHEETS_ID) return map
   try {
-    const rows = await readTab(REG_SHEETS_ID, REG_TAB)
+    const rows = await readTab(REG_SHEETS_ID, REG_TAB, { expectHeaders: REG_HEADERS })
     if (rows.length <= 1) return map
 
     const h = rows[0]
@@ -106,43 +105,24 @@ async function buildNameMap(): Promise<Record<string, UserInfo>> {
 // ─── GET Handler ─────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  if (!POINTS_SPREADSHEET_ID || !SHEETS_API_KEY) {
-    return NextResponse.json(
-      { error: 'Points sheet not configured (Missing POINTS_SPREADSHEET_ID or GOOGLE_SHEETS_API_KEY)' },
-      { status: 500 }
-    )
-  }
-
   try {
-    // 1. อ่านข้อมูลโปรไฟล์ผู้ใช้ และ Tab co2_collection ไปพร้อมๆ กัน (Parallel)
+    // 1. อ่านข้อมูลโปรไฟล์ผู้ใช้ และ Tab ประวัติขยะ ไปพร้อมๆ กัน (Parallel)
     const [nameMap, wasteRowsResult] = await Promise.allSettled([
       buildNameMap(),
-      readTab(POINTS_SPREADSHEET_ID, PRIMARY_WASTE_TAB),
+      readTab(WASTE_SHEET_ID, WASTE_TAB, { expectHeaders: WASTE_HEADERS }),
     ])
 
     const userMap = nameMap.status === 'fulfilled' ? nameMap.value : {}
-    let rows: string[][] = []
-    let activeTabUsed = PRIMARY_WASTE_TAB
+    const activeTabUsed = WASTE_TAB
 
-    if (wasteRowsResult.status === 'fulfilled') {
-      rows = wasteRowsResult.value
-    } else {
-      console.warn(`[waste-dashboard] Tab "${PRIMARY_WASTE_TAB}" read failed, trying fallbacks...`)
-      // Fallback เผื่อไว้เผื่อในอนาคตเปลี่ยนชื่อ
-      const fallbackTabs = ['waste_records', 'waste', 'records', 'Sheet1']
-      for (const tab of fallbackTabs) {
-        try {
-          const fbRows = await readTab(POINTS_SPREADSHEET_ID, tab)
-          if (fbRows.length > 1) {
-            rows = fbRows
-            activeTabUsed = tab
-            break
-          }
-        } catch {
-          // ลอง Tab ถัดไป
-        }
-      }
+    if (wasteRowsResult.status === 'rejected') {
+      console.error('[waste-dashboard] waste tab read error:', wasteRowsResult.reason)
+      return NextResponse.json(
+        { error: `Failed to read "${WASTE_TAB}" tab from the spreadsheet` },
+        { status: 502 }
+      )
     }
+    const rows = wasteRowsResult.value
 
     if (rows.length <= 1) {
       return NextResponse.json({
@@ -159,7 +139,11 @@ export async function GET(request: NextRequest) {
     const typeIdx   = findCol(h, ['waste_type', 'wastetype', 'type', 'ประเภทขยะ', 'ชนิดขยะ'])
     const weightIdx = findCol(h, ['weight', 'kg', 'น้ำหนัก'])
     const co2Idx    = findCol(h, ['co2', 'kgco2', 'carbon', 'คาร์บอน'])
-    const dateIdx   = findCol(h, ['last_updated', 'date', 'datetime', 'time', 'วันเวลา'])
+    const dateIdx   = findCol(h, ['timestamp', 'last_updated', 'date', 'datetime', 'time', 'วันเวลา', 'วันที่'])
+
+    // status อยู่คอลัมน์ที่ 9 ของแท็บ submission ถ้าไม่มีหัวคอลัมน์ให้ fallback ไป index 8
+    const statusColIdx = findCol(h, ['status', 'สถานะ'])
+    const statusIdx    = statusColIdx >= 0 ? statusColIdx : 8
 
     let totalWeight = 0
     let totalCarbon = 0
@@ -167,7 +151,11 @@ export async function GET(request: NextRequest) {
 
     const records: WasteRecord[] = rows
       .slice(1)
-      .filter((r) => r.some((c) => str(c)))
+      .filter((r) => {
+        if (!r.some((c) => str(c))) return false
+        // นับเฉพาะรายการที่ตรวจรับแล้ว (ข้ามรายการ pending)
+        return str(r[statusIdx]).toLowerCase() === DONE_STATUS
+      })
       .map((row, idx) => {
         const lid = idIdx >= 0 ? str(row[idIdx]) : ''
         const userInfo = userMap[lid]

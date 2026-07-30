@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { readTab } from '@/lib/google-sheets'
 
 // ─── Environment Variables & Constants ──────────────────────────────────────
-const SHEETS_API_KEY = process.env.GOOGLE_SHEETS_API_KEY
 const SPREADSHEET_ID = process.env.REGISTRATION_SHEETS_ID || '1vvBe_ZySfSq4oP8tfwHDUg-Jo3gBr9QanQWqLATAkNE'
 
 const REG_TAB = 'Registration'
 const SUBMISSION_TAB = 'submission'
 const TOURIST_USER_TYPE = 'นักท่องเที่ยว'
+
+// หัวคอลัมน์ที่ต้องเจอ ใช้ยืนยันว่าอ่านถูกแท็บ
+const REG_HEADERS = ['line user id', 'ตำบล']
+const SUBMISSION_HEADERS = ['waste_type', 'weight_kg']
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 export type WasteRecord = {
@@ -54,23 +58,12 @@ function str(value: unknown): string {
   return value == null ? '' : String(value).trim()
 }
 
-// อ่านข้อมูลแถวทั้งหมดจาก Sheet Tab
-async function readTab(sheetId: string, tab: string): Promise<string[][]> {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(
-    tab
-  )}?key=${SHEETS_API_KEY}`
-  const res = await fetch(url, { cache: 'no-store' })
-  if (!res.ok) throw new Error(`Sheets ${tab} read failed: ${res.status}`)
-  const json = await res.json()
-  return (json.values ?? []) as string[][]
-}
-
 // สร้าง Map จับคู่ lineUserId กับ ตำบล/ชื่อ จาก Registration Sheet
 async function buildNameMap(): Promise<Record<string, UserInfo>> {
   const map: Record<string, UserInfo> = {}
-  if (!SPREADSHEET_ID || !SHEETS_API_KEY) return map
+  if (!SPREADSHEET_ID) return map
   try {
-    const rows = await readTab(SPREADSHEET_ID, REG_TAB)
+    const rows = await readTab(SPREADSHEET_ID, REG_TAB, { expectHeaders: REG_HEADERS })
     if (rows.length <= 1) return map
 
     const h = rows[0]
@@ -106,40 +99,23 @@ async function buildNameMap(): Promise<Record<string, UserInfo>> {
 // ─── GET Handler (ดึงก้อนเดียวได้ทั้งหมด) ───────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  if (!SHEETS_API_KEY) {
-    return NextResponse.json(
-      { error: 'Google Sheets API Key not configured' },
-      { status: 500 }
-    )
-  }
-
   try {
-    // 1. อ่านข้อมูล Registration และ Submission พร้อมกันแบบ Parallel
+    // 1. อ่านข้อมูล Registration และ submission พร้อมกันแบบ Parallel
     const [nameMapResult, submissionRowsResult] = await Promise.allSettled([
       buildNameMap(),
-      readTab(SPREADSHEET_ID, SUBMISSION_TAB),
+      readTab(SPREADSHEET_ID, SUBMISSION_TAB, { expectHeaders: SUBMISSION_HEADERS }),
     ])
 
     const userMap = nameMapResult.status === 'fulfilled' ? nameMapResult.value : {}
-    let rows: string[][] = []
 
-    if (submissionRowsResult.status === 'fulfilled') {
-      rows = submissionRowsResult.value
-    } else {
-      // Fallback กรณีชื่อ Tab ไม่ตรง
-      const fallbackTabs = ['Submissions', 'submission', 'submissions', 'Sheet1']
-      for (const tab of fallbackTabs) {
-        try {
-          const fbRows = await readTab(SPREADSHEET_ID, tab)
-          if (fbRows.length > 1) {
-            rows = fbRows
-            break
-          }
-        } catch {
-          // ลองแท็บถัดไป
-        }
-      }
+    if (submissionRowsResult.status === 'rejected') {
+      console.error('[dashboard] submission read error:', submissionRowsResult.reason)
+      return NextResponse.json(
+        { error: `Failed to read "${SUBMISSION_TAB}" tab from the spreadsheet` },
+        { status: 502 }
+      )
     }
+    const rows = submissionRowsResult.value
 
     if (rows.length <= 1) {
       return NextResponse.json({

@@ -8,23 +8,22 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts'
-import Image from 'next/image'
+import SelectPill from '@/components/ui/SelectPill'
+import {
+  COLORS,
+  WASTE_COLORS,
+  WASTE_TYPE_ORDER,
+  axisTickStyle,
+  cardStyle,
+  cardTitleStyle,
+  fontStyle,
+  pillStyle,
+  tooltipStyle,
+} from '@/lib/design-tokens'
 
-const fontStyle = {
-  fontFamily: 'var(--font-ibm-plex-sans-thai), IBM Plex Sans Thai, sans-serif',
-}
-
-const WASTE_COLORS: Record<string, string> = {
-  พลาสติก: '#6fc060',
-  แก้ว: '#89b9ea',
-  กระดาษ: '#c06060',
-  อลูมิเนียม: '#d7ce56',
-}
-
-const WASTE_TYPES = ['พลาสติก', 'แก้ว', 'กระดาษ', 'อลูมิเนียม'] as const
+const WASTE_TYPES = WASTE_TYPE_ORDER
 
 const MONTH_NAMES = [
   'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
@@ -42,6 +41,19 @@ interface WasteRecord {
   subdistrict: string
   wasteType: string
   weight: number
+}
+
+/** แถวข้อมูลกราฟ ใช้ร่วมกันทั้งโหมดรายเดือนและรายวัน */
+interface ChartRow {
+  month?: string
+  monthIndex?: number
+  dayLabel?: string
+  day?: number
+  พลาสติก: number
+  แก้ว: number
+  กระดาษ: number
+  อลูมิเนียม: number
+  total: number
 }
 
 interface MonthlyWasteChartProps {
@@ -73,10 +85,6 @@ export default function MonthlyWasteChart({ tambon }: MonthlyWasteChartProps) {
   // ตัวเลือก ปี / เดือน
   const [selectedYear, setSelectedYear] = useState<number>(2569)
   const [selectedMonth, setSelectedMonth] = useState<number>(0) // 0 = ม.ค., 11 = ธ.ค.
-
-  // สถานะ Dropdown Open/Close
-  const [yearOpen, setYearOpen] = useState(false)
-  const [monthOpen, setMonthOpen] = useState(false)
 
   // 1. ดึงข้อมูลจริงจาก API
   useEffect(() => {
@@ -139,7 +147,7 @@ export default function MonthlyWasteChart({ tambon }: MonthlyWasteChartProps) {
   }, [records, tambon])
 
   // 4. ประมวลผลข้อมูลสำหรับแสดงในกราฟ (แยกตามโหมด 'รายเดือน' หรือ 'รายวัน')
-  const chartData = useMemo(() => {
+  const chartData = useMemo<ChartRow[]>(() => {
     if (viewMode === 'monthly') {
       // ─── โหมดรายเดือน ───
       const monthlyMap = MONTH_NAMES.map((mName, mIdx) => ({
@@ -218,320 +226,172 @@ export default function MonthlyWasteChart({ tambon }: MonthlyWasteChartProps) {
     }
   }, [filteredRecords, viewMode, selectedYear, selectedMonth])
 
+  const axisLabelStyle = {
+    fontFamily: 'IBM Plex Sans Thai, sans-serif',
+    fontSize: 12,
+    fontWeight: 600,
+    fill: COLORS.green,
+  }
+
   return (
     <div
       style={{
-        border: '2px solid rgba(0,0,0,0.12)',
-        borderRadius: 12,
-        padding: '20px 24px',
-        backgroundColor: '#ffffff',
+        ...cardStyle,
+        padding: '10px 20px 20px',
+        flex: 1,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
         ...fontStyle,
       }}
     >
-      {/* Header controls */}
-      <div className="flex flex-wrap items-center justify-between" style={{ gap: 12, marginBottom: 20 }}>
-        <h2
-          style={{
-            color: '#154212',
-            fontSize: 20,
-            fontWeight: 700,
-            margin: 0,
-            ...fontStyle,
-          }}
-        >
-          รายงานน้ำหนักขยะจำแนกประเภท ({viewMode === 'monthly' ? 'รายเดือน' : 'รายวัน'})
+      {/* หัวข้อ + ตัวกรอง */}
+      <div className="flex flex-wrap items-center" style={{ gap: 14 }}>
+        <h2 style={{ ...cardTitleStyle, minWidth: 0 }}>
+          น้ำหนักขยะจำแนกประเภท{viewMode === 'monthly' ? 'รายเดือน' : 'รายวัน'}
         </h2>
 
-        {/* Filter Toolbar */}
-        <div className="flex flex-wrap items-center" style={{ gap: 10 }}>
-          {/* Mode Toggle Switch */}
-          <div
-            style={{
-              display: 'flex',
-              backgroundColor: '#f0f4f0',
-              borderRadius: 8,
-              padding: 2,
-              border: '1px solid #154212',
-            }}
-          >
-            <button
-              onClick={() => setViewMode('monthly')}
-              style={{
-                padding: '4px 12px',
-                borderRadius: 6,
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: 13,
-                fontWeight: 600,
-                backgroundColor: viewMode === 'monthly' ? '#154212' : 'transparent',
-                color: viewMode === 'monthly' ? '#ffffff' : '#154212',
-                ...fontStyle,
-              }}
-            >
-              รายเดือน
-            </button>
-            <button
-              onClick={() => setViewMode('daily')}
-              style={{
-                padding: '4px 12px',
-                borderRadius: 6,
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: 13,
-                fontWeight: 600,
-                backgroundColor: viewMode === 'daily' ? '#154212' : 'transparent',
-                color: viewMode === 'daily' ? '#ffffff' : '#154212',
-                ...fontStyle,
-              }}
-            >
-              รายวัน
-            </button>
-          </div>
+        <div className="flex flex-wrap items-center" style={{ gap: 10, marginLeft: 'auto' }}>
+          <button type="button" onClick={() => setViewMode('monthly')} style={pillStyle(viewMode === 'monthly')}>
+            รายเดือน
+          </button>
+          <button type="button" onClick={() => setViewMode('daily')} style={pillStyle(viewMode === 'daily')}>
+            รายวัน
+          </button>
 
-          {/* Month Dropdown (แสดงเฉพาะเมื่ออยู่ในโหมด 'รายวัน') */}
           {viewMode === 'daily' && (
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={() => {
-                  setMonthOpen(!monthOpen)
-                  setYearOpen(false)
-                }}
-                className="flex items-center"
-                style={{
-                  gap: 6,
-                  padding: '5px 12px',
-                  border: '2px solid #154212',
-                  borderRadius: 8,
-                  backgroundColor: '#ffffff',
-                  cursor: 'pointer',
-                  ...fontStyle,
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: '#154212',
-                }}
-              >
-                <span>{FULL_MONTH_NAMES[selectedMonth]}</span>
-                <Image src="/figma/tabler-icon-chevron-down.svg" alt="chevron" width={16} height={16} />
-              </button>
-              {monthOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '110%',
-                    right: 0,
-                    backgroundColor: '#ffffff',
-                    border: '2px solid #154212',
-                    borderRadius: 8,
-                    zIndex: 30,
-                    maxHeight: 220,
-                    overflowY: 'auto',
-                    minWidth: 130,
-                  }}
-                >
-                  {FULL_MONTH_NAMES.map((mName, mIdx) => (
-                    <button
-                      key={mName}
-                      onClick={() => {
-                        setSelectedMonth(mIdx)
-                        setMonthOpen(false)
-                      }}
-                      style={{
-                        display: 'block',
-                        width: '100%',
-                        padding: '6px 14px',
-                        textAlign: 'left',
-                        backgroundColor: selectedMonth === mIdx ? '#154212' : '#ffffff',
-                        color: selectedMonth === mIdx ? '#ffffff' : '#154212',
-                        border: 'none',
-                        cursor: 'pointer',
-                        ...fontStyle,
-                        fontSize: 14,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {mName}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <SelectPill
+              value={String(selectedMonth)}
+              options={FULL_MONTH_NAMES.map((m, i) => ({ value: String(i), label: m }))}
+              onChange={(v) => setSelectedMonth(Number(v))}
+              minWidth={150}
+              align="right"
+            />
           )}
 
-          {/* Year Dropdown */}
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => {
-                setYearOpen(!yearOpen)
-                setMonthOpen(false)
-              }}
-              className="flex items-center"
-              style={{
-                gap: 6,
-                padding: '5px 12px',
-                border: '2px solid #154212',
-                borderRadius: 8,
-                backgroundColor: '#ffffff',
-                cursor: 'pointer',
-                ...fontStyle,
-                fontSize: 14,
-                fontWeight: 600,
-                color: '#154212',
-              }}
-            >
-              <span>{selectedYear}</span>
-              <Image src="/figma/tabler-icon-chevron-down.svg" alt="chevron" width={16} height={16} />
-            </button>
-            {yearOpen && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '110%',
-                  right: 0,
-                  backgroundColor: '#ffffff',
-                  border: '2px solid #154212',
-                  borderRadius: 8,
-                  zIndex: 30,
-                  overflow: 'hidden',
-                  minWidth: 90,
-                }}
-              >
-                {availableYears.map((y) => (
-                  <button
-                    key={y}
-                    onClick={() => {
-                      setSelectedYear(y)
-                      setYearOpen(false)
-                    }}
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      padding: '6px 14px',
-                      textAlign: 'left',
-                      backgroundColor: selectedYear === y ? '#154212' : '#ffffff',
-                      color: selectedYear === y ? '#ffffff' : '#154212',
-                      border: 'none',
-                      cursor: 'pointer',
-                      ...fontStyle,
-                      fontSize: 14,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {y}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <SelectPill
+            value={String(selectedYear)}
+            options={availableYears.map((y) => ({ value: String(y), label: String(y) }))}
+            onChange={(v) => setSelectedYear(Number(v))}
+            minWidth={110}
+            align="right"
+          />
         </div>
       </div>
 
-      {/* Body content */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-20 text-[#154212] font-semibold" style={fontStyle}>
+        <div
+          className="flex items-center justify-center"
+          style={{ height: 380, color: COLORS.green, fontWeight: 600, ...fontStyle }}
+        >
           กำลังโหลดข้อมูลประวัติขยะ...
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={340}>
-          {viewMode === 'monthly' ? (
-            /* กราฟแท่งแนวนอน ( layout="vertical" ) สำหรับ รายเดือน */
-            <BarChart
-              data={chartData}
-              layout="vertical"
-              margin={{ top: 4, right: 20, left: 10, bottom: 4 }}
-              barCategoryGap="20%"
-            >
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(0,0,0,0.08)" />
-              <XAxis
-                type="number"
-                tick={{ fontFamily: 'IBM Plex Sans Thai, sans-serif', fontSize: 12, fill: '#444' }}
-                tickLine={false}
-                axisLine={{ stroke: 'rgba(0,0,0,0.15)' }}
-                label={{
-                  value: 'น้ำหนัก (KG)',
-                  position: 'insideBottom',
-                  offset: -2,
-                  style: { fontFamily: 'IBM Plex Sans Thai, sans-serif', fontSize: 12, fill: '#666' },
-                }}
-              />
-              <YAxis
-                type="category"
-                dataKey="month"
-                tick={{ fontFamily: 'IBM Plex Sans Thai, sans-serif', fontSize: 12, fill: '#444' }}
-                tickLine={false}
-                axisLine={false}
-                width={50}
-              />
-              <Tooltip
-                contentStyle={{ fontFamily: 'IBM Plex Sans Thai, sans-serif', fontSize: 13, borderRadius: 8 }}
-                formatter={(value: any, name: any) => [
-                  `${Number(value || 0).toLocaleString()} KG`,
-                  String(name || ''),
-                ]}
-              />
-              <Legend
-                wrapperStyle={{ fontFamily: 'IBM Plex Sans Thai, sans-serif', fontSize: 13, paddingTop: 8 }}
-              />
-              {WASTE_TYPES.map((type) => (
-                <Bar
-                  key={type}
-                  dataKey={type}
-                  stackId="a"
-                  fill={WASTE_COLORS[type]}
-                  radius={type === 'อลูมิเนียม' ? [0, 4, 4, 0] : [0, 0, 0, 0]}
+        <>
+          {/* คำอธิบายสี — จัดกึ่งกลางเหนือกราฟ ตามแบบ */}
+          <div
+            className="flex items-center justify-center"
+            style={{ gap: 20, flexWrap: 'wrap', paddingTop: 20, paddingBottom: 8 }}
+          >
+            {WASTE_TYPES.map((t) => (
+              <div key={t} className="flex items-center" style={{ gap: 7 }}>
+                <span
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    backgroundColor: WASTE_COLORS[t],
+                    flexShrink: 0,
+                  }}
                 />
-              ))}
-            </BarChart>
-          ) : (
-            /* กราฟแท่งแนวตั้ง สำหรับ รายวัน (วันที่ 1 - 31) */
-            <BarChart
-              data={chartData}
-              margin={{ top: 10, right: 20, left: 10, bottom: 20 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.08)" />
-              <XAxis
-                dataKey="dayLabel"
-                tick={{ fontFamily: 'IBM Plex Sans Thai, sans-serif', fontSize: 11, fill: '#444' }}
-                tickLine={false}
-                axisLine={{ stroke: 'rgba(0,0,0,0.15)' }}
-                label={{
-                  value: `วันที่ (เดือน ${FULL_MONTH_NAMES[selectedMonth]} ${selectedYear})`,
-                  position: 'insideBottom',
-                  offset: -12,
-                  style: { fontFamily: 'IBM Plex Sans Thai, sans-serif', fontSize: 12, fill: '#666' },
-                }}
-              />
-              <YAxis
-                type="number"
-                tick={{ fontFamily: 'IBM Plex Sans Thai, sans-serif', fontSize: 12, fill: '#444' }}
-                tickLine={false}
-                axisLine={false}
-                width={50}
-              />
-              <Tooltip
-                contentStyle={{ fontFamily: 'IBM Plex Sans Thai, sans-serif', fontSize: 13, borderRadius: 8 }}
-                formatter={(value: any, name: any) => [
-                  `${Number(value || 0).toLocaleString()} KG`,
-                  String(name || ''),
-                ]}
-                labelFormatter={(label) =>
-                  `วันที่ ${label} ${FULL_MONTH_NAMES[selectedMonth]} ${selectedYear}`
-                }
-              />
-              <Legend
-                wrapperStyle={{ fontFamily: 'IBM Plex Sans Thai, sans-serif', fontSize: 13, paddingTop: 8 }}
-              />
-              {WASTE_TYPES.map((type) => (
-                <Bar
-                  key={type}
-                  dataKey={type}
-                  stackId="a"
-                  fill={WASTE_COLORS[type]}
-                  radius={type === 'อลูมิเนียม' ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                <span style={{ color: COLORS.green, fontSize: 15, fontWeight: 600, ...fontStyle }}>
+                  {t}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <ResponsiveContainer width="100%" height={380}>
+            {viewMode === 'monthly' ? (
+              /* กราฟแท่งแนวนอน สำหรับ รายเดือน */
+              <BarChart
+                data={chartData}
+                layout="vertical"
+                margin={{ top: 4, right: 20, left: 10, bottom: 26 }}
+                barCategoryGap="22%"
+              >
+                <CartesianGrid stroke={COLORS.grid} strokeWidth={1} />
+                <XAxis
+                  type="number"
+                  tick={axisTickStyle}
+                  tickLine={false}
+                  axisLine={false}
+                  label={{
+                    value: 'น้ำหนัก (KG)',
+                    position: 'insideBottom',
+                    offset: -16,
+                    style: axisLabelStyle,
+                  }}
                 />
-              ))}
-            </BarChart>
-          )}
-        </ResponsiveContainer>
+                <YAxis
+                  type="category"
+                  dataKey="month"
+                  tick={axisTickStyle}
+                  tickLine={false}
+                  axisLine={false}
+                  width={55}
+                />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  formatter={(value: any, name: any) => [
+                    `${Number(value || 0).toLocaleString()} KG`,
+                    String(name || ''),
+                  ]}
+                />
+                {WASTE_TYPES.map((type) => (
+                  <Bar key={type} dataKey={type} stackId="a" fill={WASTE_COLORS[type]} />
+                ))}
+              </BarChart>
+            ) : (
+              /* กราฟแท่งแนวตั้ง สำหรับ รายวัน (วันที่ 1 - 31) */
+              <BarChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 30 }}>
+                <CartesianGrid stroke={COLORS.grid} strokeWidth={1} />
+                <XAxis
+                  dataKey="dayLabel"
+                  tick={axisTickStyle}
+                  tickLine={false}
+                  axisLine={false}
+                  label={{
+                    value: `วันที่ (เดือน ${FULL_MONTH_NAMES[selectedMonth]} ${selectedYear})`,
+                    position: 'insideBottom',
+                    offset: -20,
+                    style: axisLabelStyle,
+                  }}
+                />
+                <YAxis
+                  type="number"
+                  tick={axisTickStyle}
+                  tickLine={false}
+                  axisLine={false}
+                  width={55}
+                />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  formatter={(value: any, name: any) => [
+                    `${Number(value || 0).toLocaleString()} KG`,
+                    String(name || ''),
+                  ]}
+                  labelFormatter={(label) =>
+                    `วันที่ ${label} ${FULL_MONTH_NAMES[selectedMonth]} ${selectedYear}`
+                  }
+                />
+                {WASTE_TYPES.map((type) => (
+                  <Bar key={type} dataKey={type} stackId="a" fill={WASTE_COLORS[type]} />
+                ))}
+              </BarChart>
+            )}
+          </ResponsiveContainer>
+        </>
       )}
     </div>
   )

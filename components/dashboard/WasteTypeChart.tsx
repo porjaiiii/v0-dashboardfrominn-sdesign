@@ -2,11 +2,15 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
-import Image from 'next/image'
-
-const fontStyle = {
-  fontFamily: 'var(--font-ibm-plex-sans-thai), IBM Plex Sans Thai, sans-serif',
-}
+import SelectPill from '@/components/ui/SelectPill'
+import {
+  COLORS,
+  WASTE_COLORS,
+  cardStyle,
+  cardTitleStyle,
+  fontStyle,
+  tooltipStyle,
+} from '@/lib/design-tokens'
 
 const subdistricts = [
   'ทุกตำบล',
@@ -46,7 +50,6 @@ function matchCategory(typeStr: string): 'พลาสติก' | 'แก้ว
 }
 
 export default function WasteTypeChart({ selected, onSelect }: WasteTypeChartProps) {
-  const [open, setOpen] = useState(false)
   const [records, setRecords] = useState<WasteRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -81,7 +84,7 @@ export default function WasteTypeChart({ selected, onSelect }: WasteTypeChartPro
     records.forEach((r: any) => {
       // 🟢 1. เช็กกรณีเลือก 'ทุกตำบล' หรือ 'ทั้งหมด'
       const isAll = !selected || selected === 'ทุกตำบล' || selected === 'ทั้งหมด'
-      
+
       let isMatch = false
 
       if (isAll) {
@@ -107,139 +110,58 @@ export default function WasteTypeChart({ selected, onSelect }: WasteTypeChartPro
       }
     })
 
-    const colors: Record<string, string> = {
-      พลาสติก: '#6fc060',
-      แก้ว: '#89b9ea',
-      กระดาษ: '#c06060',
-      อลูมิเนียม: '#d7ce56',
-    }
-
-    const legendList = [
-      { name: 'พลาสติก', value: Math.round(categoryTotals['พลาสติก'] * 100) / 100, color: colors['พลาสติก'] },
-      { name: 'แก้ว', value: Math.round(categoryTotals['แก้ว'] * 100) / 100, color: colors['แก้ว'] },
-      { name: 'กระดาษ', value: Math.round(categoryTotals['กระดาษ'] * 100) / 100, color: colors['กระดาษ'] },
-      { name: 'อลูมิเนียม', value: Math.round(categoryTotals['อลูมิเนียม'] * 100) / 100, color: colors['อลูมิเนียม'] },
-    ]
+    const legendList = (['พลาสติก', 'แก้ว', 'กระดาษ', 'อลูมิเนียม'] as const).map((name) => ({
+      name,
+      value: Math.round(categoryTotals[name] * 100) / 100,
+      color: WASTE_COLORS[name],
+    }))
 
     // กรองเฉพาะหมวดที่มีค่าน้ำหนักมากกว่า 0 ไปวาดกราฟวงกลม
-    const activeChartData = legendList.filter((item) => item.value > 0)
-
     return {
-      chartData: activeChartData,
+      chartData: legendList.filter((item) => item.value > 0),
       legendData: legendList,
     }
   }, [records, selected])
 
-  // แสดงผลปุ่ม Dropdown
-  const displaySelected = selected === 'ทุกตำบล' || selected === 'ทั้งหมด' || !selected
-    ? 'ทุกตำบล'
-    : selected.startsWith('ตำบล') ? selected : 'ตำบล ' + selected
+  // ตัวเลือกใน dropdown ตามแบบ: "ทั้งหมด" แล้วตามด้วย "ตำบล …"
+  const options = subdistricts.map((s) =>
+    s === 'ทุกตำบล' ? { value: s, label: 'ทั้งหมด' } : { value: s, label: `ตำบล ${s}` },
+  )
+  const currentValue = !selected || selected === 'ทั้งหมด' ? 'ทุกตำบล' : selected
 
   return (
     <div
       style={{
-        border: '2px solid rgba(0,0,0,0.2)',
-        borderRadius: 10,
-        padding: '10px 20px',
+        ...cardStyle,
+        padding: '10px 20px 20px',
         display: 'flex',
         flexDirection: 'column',
-        gap: 20,
+        gap: 10,
         flex: 1,
+        minWidth: 0,
       }}
     >
-      {/* Header */}
-      <div style={{ height: 40, display: 'flex', alignItems: 'center' }}>
-        <span
-          style={{
-            color: '#154212',
-            fontSize: 24,
-            fontWeight: 600,
-            lineHeight: '39.6px',
-            ...fontStyle,
-          }}
-        >
-          ปริมาณขยะแยกประเภท (KG)
-        </span>
+      <h3 style={cardTitleStyle}>ปริมาณขยะแยกประเภท (KG)</h3>
+
+      {/* dropdown เลือกตำบล — จัดกึ่งกลางตามแบบ */}
+      <div className="flex justify-center" style={{ paddingTop: 10 }}>
+        <SelectPill value={currentValue} options={options} onChange={onSelect} minWidth={182} />
       </div>
 
-      {/* Dropdown */}
-      <div style={{ position: 'relative', alignSelf: 'center' }}>
-        <button
-          onClick={() => setOpen(!open)}
-          className="flex items-center"
-          style={{
-            gap: 10,
-            padding: '5px 20px',
-            border: '2px solid #154212',
-            borderRadius: 10,
-            backgroundColor: 'rgba(255,255,255,0.25)',
-            backdropFilter: 'blur(40px)',
-            cursor: 'pointer',
-            ...fontStyle,
-            fontSize: 16,
-            fontWeight: 600,
-            color: '#154212',
-          }}
-        >
-          <span>{displaySelected}</span>
-          <Image src="/figma/tabler-icon-chevron-down.svg" alt="chevron" width={24} height={24} />
-        </button>
-        {open && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              backgroundColor: '#ffffff',
-              border: '2px solid #154212',
-              borderRadius: 10,
-              zIndex: 10,
-              overflow: 'hidden',
-              minWidth: 180,
-            }}
-          >
-            {subdistricts.map((s) => {
-              const label = s === 'ทุกตำบล' ? s : 'ตำบล ' + s
-              const isSelected = selected === s || (s === 'ทุกตำบล' && selected === 'ทั้งหมด')
-              return (
-                <button
-                  key={s}
-                  onClick={() => {
-                    onSelect(s)
-                    setOpen(false)
-                  }}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '6px 20px',
-                    textAlign: 'left',
-                    backgroundColor: isSelected ? '#154212' : '#ffffff',
-                    color: isSelected ? '#ffffff' : '#154212',
-                    border: 'none',
-                    cursor: 'pointer',
-                    ...fontStyle,
-                    fontSize: 16,
-                    fontWeight: 600,
-                  }}
-                >
-                  {label}
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Content Section */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-20 text-[#154212] font-semibold" style={fontStyle}>
+        <div
+          className="flex items-center justify-center"
+          style={{ flex: 1, minHeight: 260, color: COLORS.green, fontWeight: 600, ...fontStyle }}
+        >
           กำลังโหลดข้อมูลขยะประจำตำบล...
         </div>
       ) : (
-        <div className="flex items-center justify-center" style={{ gap: 20, flex: 1, minHeight: 250 }}>
-          {/* Donut chart */}
-          <div style={{ width: 250, height: 250, position: 'relative', flexShrink: 0 }}>
+        <div
+          className="flex items-center justify-center"
+          style={{ gap: 24, flex: 1, minHeight: 260, flexWrap: 'wrap' }}
+        >
+          {/* กราฟโดนัท */}
+          <div style={{ width: 260, height: 260, flexShrink: 0 }}>
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -247,15 +169,17 @@ export default function WasteTypeChart({ selected, onSelect }: WasteTypeChartPro
                     data={chartData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={70}
-                    outerRadius={120}
+                    innerRadius={54}
+                    outerRadius={126}
                     dataKey="value"
                     startAngle={90}
                     endAngle={-270}
-                    strokeWidth={0}
+                    stroke={COLORS.white}
+                    strokeWidth={4}
+                    isAnimationActive={false}
                   >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    {chartData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip
@@ -263,12 +187,15 @@ export default function WasteTypeChart({ selected, onSelect }: WasteTypeChartPro
                       `${Number(value || 0).toLocaleString()} KG`,
                       String(name || ''),
                     ]}
-                    contentStyle={{ fontFamily: 'IBM Plex Sans Thai, sans-serif' }}
+                    contentStyle={tooltipStyle}
                   />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-sm text-gray-500 font-semibold text-center" style={fontStyle}>
+              <div
+                className="flex items-center justify-center text-center"
+                style={{ height: '100%', color: COLORS.green, fontWeight: 600, ...fontStyle }}
+              >
                 ไม่มีข้อมูลขยะ
                 <br />
                 ในตำบลนี้
@@ -276,11 +203,11 @@ export default function WasteTypeChart({ selected, onSelect }: WasteTypeChartPro
             )}
           </div>
 
-          {/* Legend */}
-          <div className="flex flex-col" style={{ gap: 15, minWidth: 180 }}>
+          {/* คำอธิบายสี + ตัวเลข */}
+          <div className="flex flex-col" style={{ gap: 18, width: 207, maxWidth: '100%' }}>
             {legendData.map(({ name, value, color }) => (
               <div key={name} className="flex items-center" style={{ gap: 8 }}>
-                <div
+                <span
                   style={{
                     width: 14,
                     height: 14,
@@ -291,25 +218,23 @@ export default function WasteTypeChart({ selected, onSelect }: WasteTypeChartPro
                 />
                 <span
                   style={{
-                    color: '#154212',
-                    fontSize: 17.8,
+                    color: COLORS.green,
+                    fontSize: 18,
                     fontWeight: 600,
-                    ...fontStyle,
                     flex: 1,
                     whiteSpace: 'nowrap',
+                    ...fontStyle,
                   }}
                 >
                   {name}
                 </span>
                 <span
                   style={{
-                    color: '#154212',
-                    fontSize: 17.8,
+                    color: COLORS.green,
+                    fontSize: 18,
                     fontWeight: 600,
-                    ...fontStyle,
-                    minWidth: 70,
-                    textAlign: 'right',
                     whiteSpace: 'nowrap',
+                    ...fontStyle,
                   }}
                 >
                   {value.toLocaleString()} KG

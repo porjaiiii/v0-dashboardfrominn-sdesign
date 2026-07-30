@@ -3,30 +3,54 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-
-const fontStyle = {
-  fontFamily: 'var(--font-ibm-plex-sans-thai), IBM Plex Sans Thai, sans-serif',
-}
+import { COLORS, fontStyle } from '@/lib/design-tokens'
 
 interface SidebarProps {
   activePage?: 'home' | 'map' | 'waste-types'
 }
 
-export default function Sidebar({ activePage = 'home' }: SidebarProps) {
+/** ความสูงของแถวเมนู และช่องไฟระหว่างแถว ตามที่วัดจากแบบ */
+const ROW_HEIGHT = 34
+const ROW_GAP = 4
+/** ระยะขอบซ้าย/ขวาภายในแถวเมนู */
+const ROW_PADDING_X = 27
+
+const rowBase = {
+  display: 'flex',
+  alignItems: 'center',
+  width: '100%',
+  height: ROW_HEIGHT,
+  padding: `0 ${ROW_PADDING_X}px`,
+  background: 'none',
+  border: 'none',
+  textDecoration: 'none',
+  cursor: 'pointer',
+  color: COLORS.white,
+  fontSize: 13,
+  lineHeight: '22px',
+  ...fontStyle,
+} as const
+
+export default function Sidebar({ activePage }: SidebarProps) {
   const [expanded, setExpanded] = useState(true)
+
+  const childStyle = (active: boolean) => ({
+    ...rowBase,
+    fontWeight: active ? 700 : 400,
+    backgroundColor: active ? COLORS.greenDeep : 'transparent',
+  })
 
   return (
     <aside
       className="flex flex-col"
-      style={{ width: 258, minHeight: '100vh', backgroundColor: '#154212', flexShrink: 0 }}
+      style={{ width: 258, minHeight: '100vh', backgroundColor: COLORS.green, flexShrink: 0 }}
     >
-      {/* Sidebar header white bar with logo */}
+      {/* หัว sidebar — พื้นเขียวอ่อน มาสคอตชิดขวาล่างและถูกตัดขอบ */}
       <div
-        className="flex items-center justify-center"
         style={{
+          position: 'relative',
           height: 70,
-          backgroundColor: '#ffffff',
-          borderBottom: '1px solid rgba(0,0,0,0.2)',
+          backgroundColor: COLORS.greenHeader,
           flexShrink: 0,
           overflow: 'hidden',
         }}
@@ -34,111 +58,66 @@ export default function Sidebar({ activePage = 'home' }: SidebarProps) {
         <Image
           src="/logo-mascot.png"
           alt="โลโก้"
-          width={58}
-          height={70}
-          style={{ objectFit: 'contain', height: 70, width: 'auto' }}
+          width={57}
+          height={92}
+          priority
+          style={{
+            position: 'absolute',
+            right: 11,
+            top: 11,
+            width: 57,
+            height: 'auto',
+          }}
         />
       </div>
 
-      {/* Menu */}
-      <nav className="flex flex-col" style={{ gap: 5, paddingTop: 8 }}>
-        {/* Parent menu item - ข้อมูลร่วมอนุรักษ์โลก */}
-        <div style={{ paddingTop: 5, paddingBottom: 5, paddingLeft: 20, paddingRight: 20 }}>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="flex items-center w-full"
-            style={{ gap: 10, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-          >
-            <Image src="/figma/tabler-icon-recycle.svg" alt="recycle" width={22} height={22} />
-            <span
-              className="flex-1 text-left"
-              style={{
-                color: '#ffffff',
-                ...fontStyle,
-                fontSize: 13,
-                fontWeight: 600,
-                lineHeight: '22px',
-              }}
-            >
-              ข้อมูลร่วมอนุรักษ์โลก
-            </span>
-            <Image
-              src="/figma/tabler-icon-chevron-up.svg"
-              alt="chevron"
-              width={20}
-              height={20}
-              style={{ transform: expanded ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s' }}
-            />
-          </button>
-        </div>
+      {/* เมนู */}
+      <nav className="flex flex-col" style={{ gap: ROW_GAP, paddingTop: 6 }}>
+        {/* หัวข้อหลัก — ข้อมูลร่วมอนุรักษ์โลก */}
+        <button
+          onClick={() => setExpanded(!expanded)}
+          style={{
+            ...rowBase,
+            fontWeight: 600,
+            backgroundColor: COLORS.greenDeep,
+            gap: 12,
+          }}
+        >
+          <Image src="/figma/tabler-icon-recycle.svg" alt="" aria-hidden width={22} height={22} />
+          <span className="flex-1 text-left">ข้อมูลร่วมอนุรักษ์โลก</span>
+          <Image
+            src="/figma/tabler-icon-chevron-up.svg"
+            alt=""
+            aria-hidden
+            width={20}
+            height={20}
+            style={{
+              transform: expanded ? 'rotate(0deg)' : 'rotate(180deg)',
+              transition: 'transform 0.2s',
+            }}
+          />
+        </button>
 
-        {/* Children — paddingLeft: 52 = parent paddingLeft(20) + icon(22) + gap(10) */}
         {expanded && (
           <>
-            <div style={{ paddingTop: 2, paddingBottom: 2, paddingLeft: 52, paddingRight: 12 }}>
-              <Link
-                href="/"
-                style={{
-                  display: 'block',
-                  color: '#ffffff',
-                  ...fontStyle,
-                  fontSize: 13,
-                  fontWeight: activePage === 'home' ? 700 : 400,
-                  lineHeight: '22px',
-                  textDecoration: 'none',
-                  padding: '5px 10px',
-                  borderRadius: 6,
-                  backgroundColor: activePage === 'home' ? 'rgba(0,0,0,0.30)' : 'transparent',
-                }}
-              >
-                ปริมาณขยะประจำปี
-              </Link>
-            </div>
-            <div style={{ paddingTop: 2, paddingBottom: 2, paddingLeft: 52, paddingRight: 12 }}>
-  <a
-    href="#map-section"
-    onClick={(e) => {
-      e.preventDefault()
-      const element = document.getElementById('map-section')
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' })
-      }
-    }}
-    style={{
-      display: 'block',
-      color: '#ffffff',
-      ...fontStyle,
-      fontSize: 13,
-      fontWeight: activePage === 'map' ? 700 : 400,
-      lineHeight: '22px',
-      textDecoration: 'none',
-      padding: '5px 10px',
-      borderRadius: 6,
-      backgroundColor: activePage === 'map' ? 'rgba(0,0,0,0.30)' : 'transparent',
-    }}
-  >
-    แผนที่ข้อมูลขยะรายตำบล
-  </a>
-</div>
-            <div style={{ paddingTop: 2, paddingBottom: 2, paddingLeft: 52, paddingRight: 12 }}>
-              <Link
-                href="/waste-types"
-                style={{
-                  display: 'block',
-                  color: '#ffffff',
-                  ...fontStyle,
-                  fontSize: 13,
-                  fontWeight: activePage === 'waste-types' ? 700 : 400,
-                  lineHeight: '22px',
-                  textDecoration: 'none',
-                  padding: '5px 10px',
-                  borderRadius: 6,
-                  backgroundColor: activePage === 'waste-types' ? 'rgba(0,0,0,0.30)' : 'transparent',
-                }}
-              >
-                ปริมาณขยะแยกตามประเภท
-              </Link>
-            </div>
+            <Link href="/" style={childStyle(activePage === 'home')}>
+              ปริมาณขยะประจำปี
+            </Link>
+
+            <a
+              href="#map-section"
+              onClick={(e) => {
+                e.preventDefault()
+                document.getElementById('map-section')?.scrollIntoView({ behavior: 'smooth' })
+              }}
+              style={childStyle(activePage === 'map')}
+            >
+              แผนที่ข้อมูลขยะรายตำบล
+            </a>
+
+            <Link href="/waste-types" style={childStyle(activePage === 'waste-types')}>
+              ปริมาณขยะแยกตามประเภท
+            </Link>
           </>
         )}
       </nav>
