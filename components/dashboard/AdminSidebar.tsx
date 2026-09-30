@@ -1,0 +1,132 @@
+'use client'
+
+import Image from 'next/image'
+import { fontStyle } from '@/lib/design-tokens'
+import { ADMIN_COLORS } from '@/lib/admin-tokens'
+import { useSidebar } from '@/lib/sidebar-context'
+
+const SIDEBAR_WIDTH = 258
+
+interface MenuGroup {
+  title: string
+  items: string[]
+}
+
+const MENU: MenuGroup[] = [
+  { title: 'จัดการผู้ใช้งาน', items: ['ผู้ใช้งานทั้งหมด', 'รายละเอียดผู้ใช้งาน', 'ประวัติการใช้งาน'] },
+  { title: 'จัดการขยะ', items: ['รายการบันทึกขยะ', 'ตรวจสอบ/\nยืนยันการรับขยะ', 'ประวัติการรับขยะ'] },
+  {
+    title: 'จัดการรางวัล',
+    items: ['รายการรางวัล', 'เพิ่ม/แก้ไขรางวัล', 'สต๊อกรางวัล', 'รายการแลกรางวัล'],
+  },
+  { title: 'จัดการการรับขยะ', items: ['ตารางรอบรับขยะ', 'นัดหมายรับขยะ', 'งานรับขยะ'] },
+  { title: 'จัดการเจ้าหน้าที่', items: ['Admin / เจ้าหน้าที่', 'สิทธิ์การเข้าถึง', 'การมอบหมายพื้นที่'] },
+  { title: 'จัดการพื้นที่', items: ['6 ตำบล', 'จุดรับขยะ', 'ตารางการรับขยะ'] },
+  { title: 'รายงานและสถิติ', items: ['ข้อมูลขยะ', 'คะแนน', 'Carbon Footprint', 'ผู้ใช้งาน'] },
+  { title: 'ตั้งค่าระบบ', items: ['ข้อมูลระบบ', 'สูตรคะแนน', 'ค่า Carbon Factor', 'การแจ้งเตือน'] },
+]
+
+/** ไอคอนตารางสี่ช่อง (ใช้ทั้งเมนูและการ์ด) */
+export function GridIcon({ size = 20, color = '#ffffff' }: { size?: number; color?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="3.5" y="3.5" width="17" height="17" rx="2.5" />
+      <path d="M3.5 10h17M10 10v10.5" />
+    </svg>
+  )
+}
+
+const rowBase = {
+  display: 'flex',
+  alignItems: 'center',
+  width: '100%',
+  padding: '8px 27px',
+  color: '#ffffff',
+  fontSize: 14,
+  fontWeight: 600,
+  lineHeight: '22px',
+  textDecoration: 'none',
+  ...fontStyle,
+} as const
+
+export default function AdminSidebar() {
+  const { collapsed } = useSidebar()
+
+  return (
+    <aside
+      aria-hidden={collapsed}
+      style={{
+        width: collapsed ? 0 : SIDEBAR_WIDTH,
+        minHeight: '100vh',
+        backgroundColor: ADMIN_COLORS.navy,
+        flexShrink: 0,
+        overflow: 'hidden',
+        transition: 'width 0.25s ease',
+      }}
+    >
+      <div style={{ width: SIDEBAR_WIDTH }}>
+        {/* หัว sidebar — มาสคอตชิดขวา */}
+        <div
+          style={{
+            position: 'relative',
+            height: 70,
+            backgroundColor: ADMIN_COLORS.navyHeader,
+            overflow: 'hidden',
+          }}
+        >
+          <Image
+            src="/logo-mascot.png"
+            alt="โลโก้"
+            width={57}
+            height={92}
+            priority
+            style={{ position: 'absolute', right: 11, top: 11, width: 57, height: 'auto' }}
+          />
+        </div>
+
+        <nav className="flex flex-col" style={{ paddingTop: 1 }}>
+          {/* Dashboard (หน้าปัจจุบัน) */}
+          <a
+            href="/"
+            style={{
+              ...rowBase,
+              gap: 12,
+              backgroundColor: ADMIN_COLORS.navyActive,
+              marginBottom: 2,
+            }}
+          >
+            <GridIcon />
+            <span>Dashboard</span>
+          </a>
+
+          {MENU.map((group) => (
+            <div key={group.title}>
+              <div style={{ ...rowBase, gap: 12 }}>
+                <GridIcon />
+                <span>{group.title}</span>
+              </div>
+              {group.items.map((item) => (
+                <div
+                  key={item}
+                  style={{ ...rowBase, paddingLeft: 60, whiteSpace: 'pre-line', cursor: 'pointer' }}
+                >
+                  {item}
+                </div>
+              ))}
+            </div>
+          ))}
+        </nav>
+      </div>
+    </aside>
+  )
+}
