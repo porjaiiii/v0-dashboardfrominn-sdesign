@@ -5,6 +5,11 @@ import type { Page } from '@/lib/db/types'
 
 type Params = Record<string, string | number | undefined>
 
+/** เซสชันหมดอายุ/ยังไม่ล็อกอิน → กลับไปหน้าเข้าสู่ระบบแล้วกลับมาหน้าเดิมหลังล็อกอิน */
+function redirectToLogin() {
+  window.location.href = `/admin/login?next=${encodeURIComponent(window.location.pathname)}`
+}
+
 /**
  * โหลดรายการจาก /api/admin/* (แบ่งหน้าฝั่งเซิร์ฟเวอร์)
  * - ค่า q จะหน่วง 300ms ก่อนยิงคำขอ เพื่อไม่ให้ยิงทุกตัวอักษร
@@ -28,6 +33,7 @@ export function useAdminList<T>(endpoint: string, params: Params) {
       })
       try {
         const res = await fetch(`${endpoint}?${qs}`)
+        if (res.status === 401) return redirectToLogin()
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
         if (!cancelled) {
@@ -59,6 +65,7 @@ export function useAdminFetch<T>(endpoint: string) {
     let cancelled = false
     fetch(endpoint)
       .then(async (res) => {
+        if (res.status === 401) return redirectToLogin()
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
         if (!cancelled) setData(json as T)

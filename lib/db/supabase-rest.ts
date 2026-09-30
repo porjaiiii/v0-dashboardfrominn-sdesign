@@ -4,7 +4,7 @@
  *
  * Env ที่ต้องตั้ง (ดู .env.example):
  *   SUPABASE_URL               เช่น https://xxxx.supabase.co
- *   SUPABASE_SERVICE_ROLE_KEY  service-role key — ห้ามขึ้นต้นด้วย NEXT_PUBLIC_ เด็ดขาด
+ *   SUPABASE_SERVICE_ROLE_KEY  service-role key หรือ Secret key (sb_secret_...) — ห้ามขึ้นต้นด้วย NEXT_PUBLIC_ เด็ดขาด
  *   SUPABASE_DB_SCHEMA         (ไม่บังคับ) ค่าเริ่มต้น "app"
  *
  * หมายเหตุ: schema `app` ต้องถูกเพิ่มใน Settings → API → Exposed schemas ของ Supabase
@@ -14,6 +14,14 @@ import { readEnv } from '@/lib/google-sheets'
 
 export function isSupabaseConfigured(): boolean {
   return !!readEnv('SUPABASE_URL') && !!readEnv('SUPABASE_SERVICE_ROLE_KEY')
+}
+
+/**
+ * key รูปแบบใหม่ (sb_secret_...) ไม่ใช่ JWT จึงส่งเฉพาะ header apikey
+ * key แบบเดิม (service_role, eyJ...) เป็น JWT ต้องส่งใน Authorization ด้วย
+ */
+function authHeaders(key: string): Record<string, string> {
+  return key.startsWith('sb_') ? { apikey: key } : { apikey: key, Authorization: `Bearer ${key}` }
 }
 
 function config() {
@@ -45,8 +53,7 @@ export async function sbSelect<T>(table: string, opts: SelectOptions = {}): Prom
 
   const res = await fetch(`${url}/rest/v1/${table}?${params}`, {
     headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
+      ...authHeaders(key),
       'Accept-Profile': schema,
       Prefer: 'count=exact',
     },
@@ -69,8 +76,7 @@ export async function sbUpdate<T>(
   const res = await fetch(`${url}/rest/v1/${table}?${new URLSearchParams(filters)}`, {
     method: 'PATCH',
     headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
+      ...authHeaders(key),
       'Content-Profile': schema,
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
