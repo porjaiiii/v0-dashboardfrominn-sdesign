@@ -11,6 +11,14 @@ const SIDEBAR_WIDTH = 258
 /** เมนูย่อยที่มีหน้าจริงแล้ว */
 const ITEM_HREFS: Record<string, string> = {
   ผู้ใช้งานทั้งหมด: '/admin/users',
+  รายการบันทึกขยะ: '/admin/waste-records',
+  'Admin / เจ้าหน้าที่': '/admin/staff',
+  สต๊อกรางวัล: '/admin/reward-stock',
+  รายการรางวัล: '/admin/rewards',
+  ข้อมูลขยะ: '/admin/waste-data',
+  ข้อมูลระบบ: '/admin/system-info',
+  สูตรคะแนน: '/admin/point-formula',
+  การแจ้งเตือน: '/admin/notifications',
 }
 
 interface MenuGroup {
@@ -117,10 +125,17 @@ export default function AdminSidebar({ activeHref = '/' }: { activeHref?: string
 
           {MENU.map((group) => (
             <div key={group.title}>
-              <div style={{ ...rowBase, gap: 12 }}>
-                <GridIcon />
-                <span>{group.title}</span>
-              </div>
+              {group.title === 'ตั้งค่าระบบ' ? (
+                <Link href="/admin/system-info" style={{ ...rowBase, gap: 12 }}>
+                  <GridIcon />
+                  <span>{group.title}</span>
+                </Link>
+              ) : (
+                <div style={{ ...rowBase, gap: 12 }}>
+                  <GridIcon />
+                  <span>{group.title}</span>
+                </div>
+              )}
               {group.items.map((item) => {
                 const href = ITEM_HREFS[item]
                 const style = {

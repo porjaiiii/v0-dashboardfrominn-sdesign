@@ -3,15 +3,60 @@
 import { useRef, useState } from 'react'
 import Image from 'next/image'
 import AdminShell from '@/components/dashboard/AdminShell'
-import { GridIcon } from '@/components/dashboard/AdminSidebar'
+import {
+  Column,
+  CsvButton,
+  DataTable,
+  PlainSelect,
+  SectionTitle,
+  SummaryCard,
+  downloadCsv,
+} from '@/components/dashboard/admin-ui'
 import { fontStyle } from '@/lib/design-tokens'
 import { ADMIN_COLORS } from '@/lib/admin-tokens'
+import { ALL_SUBDISTRICTS, PAGE_SIZE, SUBDISTRICTS } from '@/lib/db/constants'
+import type { DashboardSummary, User } from '@/lib/db/types'
+import { toBuDate, useAdminFetch, useAdminList } from '@/lib/use-admin-list'
 
-const TOTAL = 500
-const PAGE_SIZE = 10
-const PAGES = [1, 2, 3, 4, 5]
+/** แถวที่แสดงในตาราง/ป๊อปอัพ — แปลงจาก app.users ให้เป็นข้อความพร้อมแสดง */
+interface Row {
+  line_user_id: string
+  display_user_id: string
+  full_name: string
+  nickname: string
+  phone_number: string
+  gender: string
+  age_range: string
+  user_type: string
+  subdistrict: string
+  occupation: string
+  /** ISO เดิม ใช้ตอนแสดงในป๊อปอัพ */
+  registered_iso: string
+  registered_at: string
+  is_legacy: string
+}
 
-const COLUMNS = [
+const dash = (v: string | null) => v || '-'
+
+function toRow(u: User): Row {
+  return {
+    line_user_id: u.line_user_id,
+    display_user_id: dash(u.display_user_id),
+    full_name: dash(u.full_name),
+    nickname: dash(u.nickname),
+    phone_number: dash(u.phone_number),
+    gender: dash(u.gender),
+    age_range: dash(u.age_range),
+    user_type: dash(u.user_type),
+    subdistrict: dash(u.subdistrict),
+    occupation: dash(u.occupation),
+    registered_iso: u.registered_at,
+    registered_at: toBuDate(u.registered_at),
+    is_legacy: String(u.is_legacy),
+  }
+}
+
+const KEYS = [
   'line_user_id',
   'display_user_id',
   'full_name',
@@ -24,60 +69,19 @@ const COLUMNS = [
   'occupation',
   'registered_at',
   'is_legacy',
-  'action',
 ] as const
 
-type DataKey = Exclude<(typeof COLUMNS)[number], 'action'>
-type Row = Record<DataKey, string>
-
-const mk = (
-  line_user_id: string,
-  display_user_id: string,
-  full_name: string,
-  nickname: string,
-  phone_number: string,
-  gender: string,
-  age_range: string,
-  occupation: string,
-  registered_at: string,
-): Row => ({
-  line_user_id,
-  display_user_id,
-  full_name,
-  nickname,
-  phone_number,
-  gender,
-  age_range,
-  user_type: 'ผู้ใช้ทั่วไป',
-  subdistrict: 'บางกอบัว',
-  occupation,
-  registered_at,
-  is_legacy: 'false',
-})
-
-// TODO: เปลี่ยนเป็นข้อมูลจริงจาก API/Google Sheets
-const ROWS: Row[] = [
-  mk('Uf1a2b3c4d5', '-', 'สมชาย ใจดี', 'สมชาย', '081-234-5678', 'ชาย', '25-34', 'พนักงานบริษัท', '2567-01-12'),
-  mk('Ux2y3z4w5e6', '-', 'นันทพร สุขใจ', 'นันทพร', '081-987-6543', 'หญิง', '35-44', 'ครู', '2567-01-15'),
-  mk('Ub3c4d5e6f7', 'กิตติพงษ์ วงศ์สว่าง', 'กิตติพงษ์ วงศ์สว่าง', 'กิตติพงษ์', '089-123-4567', 'ชาย', '18-24', 'นักศึกษา', '2567-01-18'),
-  mk('Ua4b5c6d7e8', '-', 'สุภาพร บุญชัย', 'สุภาพร', '081-555-1234', 'หญิง', '45-54', 'เจ้าของกิจการ', '2567-01-22'),
-  mk('Ue5f6g7h8i9', 'ธนพล วรพงษ์', 'ธนพล วรพงษ์', 'ธนพล', '089-901-2345', 'ชาย', '55+', 'เกษียณ', '2567-01-25'),
-  mk('Uj6k7l8m9n0', '-', 'พิมพา รุ่งเรือง', 'พิมพา', '081-777-8888', 'หญิง', '25-34', 'พนักงานบริษัท', '2567-01-28'),
-  mk('Uo7p8q9r0s1', 'วีรศักดิ์ นิยมไทย', 'วีรศักดิ์ นิยมไทย', 'วีรศักดิ์', '089-444-5555', 'ชาย', '35-44', 'พนักงานบริษัท', '2567-02-01'),
-  mk('Up9q0r1s2t3', '-', 'สุวิมล สุขมาล', 'สุวิมล', '081-222-3333', 'หญิง', '18-24', 'นักศึกษา', '2567-02-05'),
-  mk('Uv1w2x3y4z5', 'รัฐพล ศรีสมุทร', 'รัฐพล ศรีสมุทร', 'รัฐพล', '089-666-7777', 'ชาย', '45-54', 'เจ้าของกิจการ', '2567-02-10'),
-  mk('Ua2b3c4d5e6', '-', 'นภาพร วงศ์สว่าง', 'นภาพร', '081-888-9999', 'หญิง', '25-34', 'ครู', '2567-02-12'),
-]
-
-const SORT_OPTIONS = ['อายุ', 'ชื่อ', 'วันที่ลงทะเบียน']
-const TAMBON_OPTIONS = ['บางกอบัว', 'บางกะเจ้า', 'บางยอ', 'บางน้ำผึ้ง', 'ทรงคนอง', 'หนองปรือ']
+const SORT_KEYS: Record<string, string> = { อายุ: 'age', ชื่อ: 'name', วันที่ลงทะเบียน: 'registered' }
+const SORT_OPTIONS = Object.keys(SORT_KEYS)
+const TAMBON_OPTIONS = [ALL_SUBDISTRICTS, ...SUBDISTRICTS]
 
 const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
 /** '2567-01-12' -> '12 ม.ค. 2567' */
 function formatThaiDate(iso: string) {
-  const [y, m, d] = iso.split('-').map(Number)
-  return `${d} ${THAI_MONTHS[m - 1]} ${y}`
+  const dt = new Date(iso)
+  if (isNaN(dt.getTime())) return '-'
+  return `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()]} ${dt.getFullYear() + 543}`
 }
 
 const POPUP_WIDTH = 380
@@ -198,7 +202,7 @@ function UserDetailPopup({
             <DetailField label="Line">{row.line_user_id}</DetailField>
             <DetailField label="เบอร์โทร">{row.phone_number}</DetailField>
             <DetailField label="ตำบล">{row.subdistrict}</DetailField>
-            <DetailField label="วันที่สมัคร">{formatThaiDate(row.registered_at)}</DetailField>
+            <DetailField label="วันที่สมัคร">{formatThaiDate(row.registered_iso)}</DetailField>
           </div>
           <div className="flex flex-col items-end" style={{ gap: 4 }}>
             <DetailField label="เพศ">{row.gender}</DetailField>
@@ -227,81 +231,22 @@ function UserDetailPopup({
   )
 }
 
-function Chevron() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#154212"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  )
-}
-
-/** dropdown แบบไม่มีกรอบ: "label ค่า ⌄" */
-function PlainSelect({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string
-  value: string
-  options: string[]
-  onChange: (v: string) => void
-}) {
-  return (
-    <label
-      className="flex items-center"
-      style={{
-        position: 'relative',
-        gap: 8,
-        color: ADMIN_COLORS.navy,
-        fontSize: 16,
-        fontWeight: 600,
-        cursor: 'pointer',
-        ...fontStyle,
-      }}
-    >
-      <span>
-        {label} {value}
-      </span>
-      <Chevron />
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={label}
-        style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%' }}
-      >
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-    </label>
-  )
-}
-
-function toCsv(rows: Row[]) {
-  const keys = COLUMNS.filter((c): c is DataKey => c !== 'action')
-  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`
-  return [keys.join(','), ...rows.map((r) => keys.map((k) => esc(r[k])).join(','))].join('\n')
-}
 
 export default function AdminUsersPage() {
   const [page, setPage] = useState(1)
-  const [sortBy, setSortBy] = useState('อายุ')
-  const [tambon, setTambon] = useState('บางกอบัว')
+  const [sortBy, setSortBy] = useState(SORT_OPTIONS[0])
+  const [tambon, setTambon] = useState(ALL_SUBDISTRICTS)
   const [hover, setHover] = useState<{ row: Row; top: number; left: number } | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const list = useAdminList<User>('/api/admin/users', {
+    page,
+    pageSize: PAGE_SIZE,
+    sort: SORT_KEYS[sortBy],
+    subdistrict: tambon === ALL_SUBDISTRICTS ? undefined : tambon,
+  })
+  const { data: summary } = useAdminFetch<DashboardSummary>('/api/admin/summary')
+  const rows = list.rows.map(toRow)
 
   const cancelClose = () => {
     if (closeTimer.current) clearTimeout(closeTimer.current)
@@ -318,230 +263,77 @@ export default function AdminUsersPage() {
     setHover({ row, top, left })
   }
 
-  const from = (page - 1) * PAGE_SIZE + 1
-  const to = Math.min(page * PAGE_SIZE, TOTAL)
-
-  const exportCsv = () => {
-    const blob = new Blob(['﻿' + toCsv(ROWS)], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'users.csv'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const pageBtn = (active: boolean) => ({
-    width: 32,
-    height: 32,
-    borderRadius: 6,
-    border: `1px solid ${active ? ADMIN_COLORS.cardIcon : '#d5d9e4'}`,
-    backgroundColor: active ? ADMIN_COLORS.cardIcon : '#ffffff',
-    color: active ? '#ffffff' : '#222',
-    fontSize: 13,
-    fontWeight: 500,
-    cursor: 'pointer',
-    ...fontStyle,
-  })
+  const columns: Column<Row>[] = [
+    ...KEYS.map((k) => ({ key: k, label: k })),
+    {
+      key: 'action',
+      label: 'action',
+      render: (r) => (
+        <a
+          href="#"
+          onClick={(e) => e.preventDefault()}
+          onMouseEnter={(e) => openPopup(e, r)}
+          onMouseLeave={scheduleClose}
+          style={{ color: ADMIN_COLORS.cardIcon, fontWeight: 600, textDecoration: 'none' }}
+        >
+          ดูรายละเอียด
+        </a>
+      ),
+    },
+  ]
 
   return (
     <AdminShell activeHref="/admin/users">
       <h1
-        style={{
-          color: ADMIN_COLORS.navy,
-          fontSize: 26,
-          fontWeight: 600,
-          lineHeight: '36px',
-          margin: '10px 0 0',
-          ...fontStyle,
-        }}
+        style={{ color: ADMIN_COLORS.navy, fontSize: 26, fontWeight: 600, lineHeight: '36px', margin: '10px 0 0', ...fontStyle }}
       >
         จัดการผู้ใช้งาน
       </h1>
-      <p
-        style={{
-          color: ADMIN_COLORS.navy,
-          fontSize: 16,
-          fontWeight: 600,
-          lineHeight: '24px',
-          margin: '2px 0 14px',
-          ...fontStyle,
-        }}
-      >
+      <p style={{ color: ADMIN_COLORS.navy, fontSize: 16, fontWeight: 600, lineHeight: '24px', margin: '2px 0 14px', ...fontStyle }}>
         รายชื่อผู้ใช้งานในระบบ
       </p>
 
-      {/* การ์ดสรุป */}
-      <div
-        style={{
-          position: 'relative',
-          height: 118,
-          padding: '6px 10px',
-          borderRadius: 8,
-          backgroundColor: ADMIN_COLORS.cardBg,
-          border: `1px solid ${ADMIN_COLORS.cardBorder}`,
-          ...fontStyle,
-        }}
-      >
-        <div style={{ fontSize: 16, fontWeight: 600, lineHeight: '22px', color: '#000' }}>
-          ผู้ใช้งานทั้งหมด
-        </div>
-        <div style={{ fontSize: 34, fontWeight: 600, lineHeight: '44px', color: '#000' }}>{TOTAL}</div>
-        <div style={{ fontSize: 16, fontWeight: 600, lineHeight: '22px', color: '#154212' }}>บัญชี</div>
-        <div
-          className="flex items-center justify-center"
-          style={{
-            position: 'absolute',
-            top: 12,
-            right: 10,
-            width: 38,
-            height: 38,
-            borderRadius: 6,
-            backgroundColor: ADMIN_COLORS.cardIcon,
-          }}
-        >
-          <GridIcon size={24} />
-        </div>
-      </div>
-
-      {/* หัวตาราง + ตัวกรอง */}
-      <div className="flex items-center justify-between" style={{ margin: '8px 0 10px' }}>
-        <h2
-          style={{ color: ADMIN_COLORS.navy, fontSize: 26, fontWeight: 600, margin: 0, ...fontStyle }}
-        >
-          รายชื่อผู้ใช้งาน
-        </h2>
-        <div className="flex items-center" style={{ gap: 40 }}>
-          <PlainSelect label="เรียงตาม :" value={sortBy} options={SORT_OPTIONS} onChange={setSortBy} />
-          <PlainSelect label="ตำบล" value={tambon} options={TAMBON_OPTIONS} onChange={setTambon} />
-          <button
-            type="button"
-            onClick={exportCsv}
-            className="flex items-center"
-            style={{
-              gap: 8,
-              height: 42,
-              padding: '0 16px',
-              borderRadius: 8,
-              border: `1.5px solid ${ADMIN_COLORS.cardIcon}`,
-              backgroundColor: '#ffffff',
-              color: ADMIN_COLORS.cardIcon,
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: 'pointer',
-              ...fontStyle,
-            }}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M12 4v11M7 11l5 5 5-5M4 20h16" />
-            </svg>
-            ส่งออก CSV
-          </button>
-        </div>
-      </div>
-
-      {/* ตาราง */}
-      <div style={{ border: '1px solid #dfe3ee', borderRadius: 10, overflow: 'hidden', ...fontStyle }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: 1500, borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr style={{ backgroundColor: ADMIN_COLORS.navy, color: '#ffffff', height: 46 }}>
-                {COLUMNS.map((c) => (
-                  <th
-                    key={c}
-                    style={{ textAlign: 'left', padding: '0 10px', fontWeight: 600, whiteSpace: 'nowrap' }}
-                  >
-                    {c}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {ROWS.map((r, i) => (
-                <tr
-                  key={r.line_user_id}
-                  style={{ height: 48, backgroundColor: i % 2 ? '#f8f9fc' : '#ffffff', color: '#333' }}
-                >
-                  {COLUMNS.map((c) =>
-                    c === 'action' ? (
-                      <td key={c} style={{ padding: '0 10px', whiteSpace: 'nowrap' }}>
-                        <a
-                          href="#"
-                          onClick={(e) => e.preventDefault()}
-                          onMouseEnter={(e) => openPopup(e, r)}
-                          onMouseLeave={scheduleClose}
-                          style={{ color: ADMIN_COLORS.cardIcon, fontWeight: 600, textDecoration: 'none' }}
-                        >
-                          ดูรายละเอียด
-                        </a>
-                      </td>
-                    ) : (
-                      <td key={c} style={{ padding: '0 10px', whiteSpace: 'nowrap' }}>
-                        {r[c]}
-                      </td>
-                    ),
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div
-          className="flex items-center justify-between"
-          style={{
-            height: 58,
-            padding: '0 12px',
-            borderTop: '1px solid #e6e9f1',
-            backgroundColor: '#ffffff',
-          }}
-        >
-          <span style={{ color: '#8a8fa0', fontSize: 13 }}>
-            แสดง {from}-{to} จาก {TOTAL} รายการ
-          </span>
-          <div className="flex items-center" style={{ gap: 10 }}>
-            <button
-              type="button"
-              aria-label="ก่อนหน้า"
-              style={{ ...pageBtn(false), width: 36 }}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              ‹
-            </button>
-            {PAGES.map((n) => (
-              <button key={n} type="button" style={pageBtn(n === page)} onClick={() => setPage(n)}>
-                {n}
-              </button>
-            ))}
-            <button
-              type="button"
-              aria-label="ถัดไป"
-              style={{ ...pageBtn(false), width: 36 }}
-              onClick={() => setPage((p) => Math.min(PAGES.length, p + 1))}
-            >
-              ›
-            </button>
-          </div>
-        </div>
-      </div>
-      {hover && (
-        <UserDetailPopup
-          row={hover.row}
-          top={hover.top}
-          left={hover.left}
-          onEnter={cancelClose}
-          onLeave={scheduleClose}
+      <div className="flex">
+        <SummaryCard
+          label="ผู้ใช้งานทั้งหมด"
+          value={(summary?.users ?? list.total).toLocaleString('th-TH')}
+          unit="บัญชี"
+          unitColor="#154212"
         />
+      </div>
+
+      <div className="flex items-center justify-between" style={{ margin: '8px 0 10px' }}>
+        <SectionTitle>รายชื่อผู้ใช้งาน</SectionTitle>
+        <div className="flex items-center" style={{ gap: 40 }}>
+          <PlainSelect label="เรียงตาม :" value={sortBy} options={SORT_OPTIONS} onChange={(v) => { setSortBy(v); setPage(1) }} />
+          <PlainSelect label="ตำบล" value={tambon} options={TAMBON_OPTIONS} onChange={(v) => { setTambon(v); setPage(1) }} />
+          <CsvButton
+            onClick={() => downloadCsv('users.csv', [...KEYS], rows.map((r) => KEYS.map((k) => r[k])))}
+          />
+        </div>
+      </div>
+
+      {list.error && (
+        <p role="alert" style={{ color: '#b02e0d', fontWeight: 600, ...fontStyle }}>
+          โหลดข้อมูลไม่สำเร็จ: {list.error}
+        </p>
+      )}
+
+      <div style={{ opacity: list.loading ? 0.6 : 1, transition: 'opacity .15s' }}>
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(r) => r.line_user_id}
+          total={list.total}
+          pageSize={PAGE_SIZE}
+          pageCount={Math.max(1, Math.ceil(list.total / PAGE_SIZE))}
+          page={page}
+          onPage={setPage}
+        />
+      </div>
+
+      {hover && (
+        <UserDetailPopup row={hover.row} top={hover.top} left={hover.left} onEnter={cancelClose} onLeave={scheduleClose} />
       )}
     </AdminShell>
   )
