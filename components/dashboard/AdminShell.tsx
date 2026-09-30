@@ -141,7 +141,7 @@ export default function AdminShell({
             )}
           </div>
 
-          <Image src="/logo-mascot.png" alt="โลโก้" width={26} height={34} style={{ height: 'auto' }} />
+          <Image src="/mascot-icon.png" alt="โลโก้" width={26} height={32} />
         </div>
 
         <main style={{ padding: '0 20px 30px', display: 'flex', flexDirection: 'column' }}>

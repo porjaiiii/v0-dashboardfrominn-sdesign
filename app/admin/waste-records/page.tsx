@@ -16,7 +16,8 @@ import {
 } from '@/components/dashboard/admin-ui'
 import { ALL_SUBDISTRICTS, SUBDISTRICTS } from '@/lib/db/constants'
 import type { DashboardSummary, WasteRecord, WasteRecordStatus } from '@/lib/db/types'
-import { toBuDateTime, useAdminFetch, useAdminList } from '@/lib/use-admin-list'
+import ExportCsvDialog, { type ExportRange } from '@/components/dashboard/ExportCsvDialog'
+import { fetchAllRows, toBuDateTime, useAdminFetch, useAdminList } from '@/lib/use-admin-list'
 
 type Status = 'อนุมัติ' | 'รอตรวจสอบ' | 'ถูกลบ'
 
@@ -102,12 +103,24 @@ export default function WasteRecordsPage() {
   const { data: summary } = useAdminFetch<DashboardSummary>('/api/admin/summary')
   const rows = list.rows.map(toRow)
 
-  const exportCsv = () =>
+  const [exportOpen, setExportOpen] = useState(false)
+
+  const exportCsv = async ({ from, to, includeDeleted }: ExportRange) => {
+    const all = await fetchAllRows<WasteRecord>('/api/admin/waste-records', {
+      sort: SORT_KEYS[sortBy],
+      subdistrict: tambon === ALL_SUBDISTRICTS ? undefined : tambon,
+      from,
+      to,
+      includeDeleted: String(includeDeleted),
+    })
     downloadCsv(
-      'waste-records.csv',
+      `waste-records_${from || 'all'}_${to || 'all'}.csv`,
       COLUMNS.slice(0, -1).map((c) => c.label),
-      rows.map((r) => [r.id, r.line_user_id, r.waste_type_id, r.weight_kg, r.carbon, r.points, r.status, r.recorded_at, r.is_legacy, r.updated_at]),
+      all
+        .map(toRow)
+        .map((r) => [r.id, r.line_user_id, r.waste_type_id, r.weight_kg, r.carbon, r.points, r.status, r.recorded_at, r.is_legacy, r.updated_at]),
     )
+  }
 
   const fmt = (n: number | undefined) =>
     n === undefined ? '...' : n.toLocaleString('th-TH', { maximumFractionDigits: 1 })
@@ -142,7 +155,7 @@ export default function WasteRecordsPage() {
               setPage(1)
             }}
           />
-          <CsvButton onClick={exportCsv} />
+          <CsvButton onClick={() => setExportOpen(true)} />
         </div>
       </div>
 
@@ -164,6 +177,7 @@ export default function WasteRecordsPage() {
           onPage={setPage}
         />
       </div>
+      <ExportCsvDialog open={exportOpen} onClose={() => setExportOpen(false)} onExport={exportCsv} showIncludeDeleted />
     </AdminShell>
   )
 }

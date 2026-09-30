@@ -38,6 +38,23 @@ function likePattern(value: string): string {
   return `*${value.replace(/[*%,()]/g, ' ').trim()}*`
 }
 
+/** ช่วงวันที่เวลาไทย → [gte, lt) เป็น ISO; to รวมทั้งวัน (บวก 1 วัน) */
+function dateRange(p: ListParams): { gte?: string; lt?: string } {
+  const out: { gte?: string; lt?: string } = {}
+  if (p.from) out.gte = new Date(`${p.from}T00:00:00+07:00`).toISOString()
+  if (p.to) out.lt = new Date(new Date(`${p.to}T00:00:00+07:00`).getTime() + 86400000).toISOString()
+  return out
+}
+
+const inRange = (iso: string, r: { gte?: string; lt?: string }) =>
+  (!r.gte || iso >= r.gte) && (!r.lt || iso < r.lt)
+
+/** PostgREST: and=(col.gte.X,col.lt.Y) — คืน undefined ถ้าไม่มีช่วง */
+function rangeFilter(col: string, r: { gte?: string; lt?: string }): string | undefined {
+  const parts = [r.gte && `${col}.gte.${r.gte}`, r.lt && `${col}.lt.${r.lt}`].filter(Boolean)
+  return parts.length ? `(${parts.join(',')})` : undefined
+}
+
 const includes = (haystack: (string | null | undefined)[], q?: string) =>
   !q || haystack.some((h) => (h ?? '').toLowerCase().includes(q.toLowerCase()))
 
@@ -64,13 +81,22 @@ function userFilters(p: ListParams, prefix = ''): Record<string, string> {
 
 export async function getUsers(p: ListParams): Promise<Page<User>> {
   if (!isSupabaseConfigured()) {
+    const range = dateRange(p)
     const rows = mock.MOCK_USERS.filter(
-      (u) => includes([u.full_name, u.nickname, u.phone_number, u.line_user_id], p.q) && includes([u.subdistrict], p.subdistrict),
+      (u) =>
+        includes([u.full_name, u.nickname, u.phone_number, u.line_user_id], p.q) &&
+        includes([u.subdistrict], p.subdistrict) &&
+        inRange(u.registered_at, range),
     )
     return paginate(rows, p)
   }
+  const userRange = rangeFilter('registered_at', dateRange(p))
   return sbSelect<User>('users', {
-    filters: { ...userFilters(p), order: USER_SORT[p.sort ?? ''] ?? USER_SORT.registered },
+    filters: {
+      ...userFilters(p),
+      ...(userRange ? { and: userRange } : {}),
+      order: USER_SORT[p.sort ?? ''] ?? USER_SORT.registered,
+    },
     limit: p.pageSize,
     offset: offsetOf(p),
   })
@@ -79,17 +105,23 @@ export async function getUsers(p: ListParams): Promise<Page<User>> {
 /** เจ้าหน้าที่ = admin_keys ที่ status = active แล้ว join กับ users */
 export async function getStaff(p: ListParams): Promise<Page<User>> {
   if (!isSupabaseConfigured()) {
+    const range = dateRange(p)
     const rows = mock.MOCK_ADMIN_KEYS.map((k) => k.user).filter(
-      (u) => includes([u.full_name, u.nickname, u.phone_number, u.line_user_id], p.q) && includes([u.subdistrict], p.subdistrict),
+      (u) =>
+        includes([u.full_name, u.nickname, u.phone_number, u.line_user_id], p.q) &&
+        includes([u.subdistrict], p.subdistrict) &&
+        inRange(u.registered_at, range),
     )
     return paginate(rows, p)
   }
+  const staffRange = rangeFilter('registered_at', dateRange(p))
   const sortCol = (USER_SORT[p.sort ?? ''] ?? USER_SORT.registered).split('.')
   const { rows, total } = await sbSelect<{ users: User }>('admin_keys', {
     select: 'key,users!inner(*)',
     filters: {
       status: 'eq.active',
       ...userFilters(p, 'users.'),
+      ...(staffRange ? { 'users.and': staffRange } : {}),
       order: `users(${sortCol[0]}).${sortCol[1]}`,
     },
     limit: p.pageSize,
@@ -109,13 +141,21 @@ const RECORD_SORT: Record<string, string> = {
 export async function getWasteRecords(p: ListParams): Promise<Page<WasteRecord>> {
   if (!isSupabaseConfigured()) {
     const subOf = (id: string) => mock.MOCK_USERS.find((u) => u.line_user_id === id)?.subdistrict
+    const range = dateRange(p)
     const rows = mock.MOCK_WASTE_RECORDS.filter(
-      (r) => (!p.status || r.status === p.status) && includes([subOf(r.line_user_id)], p.subdistrict),
+      (r) =>
+        (!p.status || r.status === p.status) &&
+        (p.includeDeleted !== false || r.status !== 'cancelled') &&
+        includes([subOf(r.line_user_id)], p.subdistrict) &&
+        inRange(r.recorded_at, range),
     )
     return paginate(rows, p)
   }
   const filters: Record<string, string> = { order: RECORD_SORT[p.sort ?? ''] ?? RECORD_SORT.time }
   if (p.status) filters.status = `eq.${p.status}`
+  else if (p.includeDeleted === false) filters.status = 'neq.cancelled'
+  const recordRange = rangeFilter('recorded_at', dateRange(p))
+  if (recordRange) filters.and = recordRange
   if (p.subdistrict) filters['users.subdistrict'] = `ilike.${likePattern(p.subdistrict)}`
   return sbSelect<WasteRecord>('waste_records', {
     select: p.subdistrict ? '*,users!inner(subdistrict)' : '*',

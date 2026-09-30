@@ -28,9 +28,18 @@ const clampInt = (v: string | null, fallback: number, min: number, max: number) 
 export function parseListParams(req: NextRequest): ListParams {
   const sp = req.nextUrl.searchParams
   const text = (k: string) => sp.get(k)?.trim().slice(0, 100) || undefined
+  const date = (k: string) => {
+    const v = sp.get(k)
+    return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined
+  }
+  // โหมดส่งออก CSV ขอทีละ 1000 แถว; โหมดปกติจำกัด 100
+  const maxPageSize = sp.get('export') === '1' ? 1000 : 100
   return {
     page: clampInt(sp.get('page'), 1, 1, 100000),
-    pageSize: clampInt(sp.get('pageSize'), PAGE_SIZE, 1, 100),
+    pageSize: clampInt(sp.get('pageSize'), PAGE_SIZE, 1, maxPageSize),
+    from: date('from'),
+    to: date('to'),
+    includeDeleted: sp.get('includeDeleted') !== 'false',
     q: text('q'),
     sort: text('sort'),
     subdistrict: text('subdistrict'),
