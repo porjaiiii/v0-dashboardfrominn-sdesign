@@ -9,7 +9,10 @@ import { useLiff } from '@/lib/liff-context'
 import { fontStyle } from '@/lib/design-tokens'
 import { ADMIN_COLORS } from '@/lib/admin-tokens'
 
-/** โครงหน้าแอดมิน: sidebar + header (โปรไฟล์/โลโก้) + เนื้อหา พร้อมตรวจการล็อกอิน */
+/**
+ * โครงหน้าแอดมิน: sidebar + header (โปรไฟล์/โลโก้) + เนื้อหา
+ * ตรวจการล็อกอินจาก /api/admin/session (cookie ที่เซิร์ฟเวอร์ออกให้หลังกรอกรหัสที่ /admin/login)
+ */
 export default function AdminShell({
   activeHref,
   children,
@@ -18,30 +21,34 @@ export default function AdminShell({
   children: ReactNode
 }) {
   const router = useRouter()
-  const { emailUser, emailLogout } = useAuth()
-  const { isLiffReady, isLoggedIn: liffLoggedIn, profile: liffProfile, liffLogout } = useLiff()
+  const { emailUser } = useAuth()
+  const { isLoggedIn: liffLoggedIn, profile: liffProfile } = useLiff()
   const [profileOpen, setProfileOpen] = useState(false)
-
-  const isAuthenticated = !!emailUser || liffLoggedIn
+  const [authed, setAuthed] = useState(false)
 
   useEffect(() => {
-    if (isLiffReady && !isAuthenticated) {
-      router.push('/login')
+    let cancelled = false
+    fetch('/api/admin/session', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((s: { authenticated: boolean }) => {
+        if (cancelled) return
+        if (s.authenticated) setAuthed(true)
+        else router.replace(`/admin/login?next=${encodeURIComponent(window.location.pathname)}`)
+      })
+      .catch(() => !cancelled && router.replace('/admin/login'))
+    return () => {
+      cancelled = true
     }
-  }, [isLiffReady, isAuthenticated, router])
+  }, [router])
 
-  if (!isAuthenticated) return null
+  if (!authed) return null
 
-  const displayName = liffLoggedIn ? liffProfile?.displayName ?? '' : emailUser?.name ?? ''
+  const displayName = liffLoggedIn ? liffProfile?.displayName ?? '' : emailUser?.name || 'แอดมิน'
   const avatarUrl = liffLoggedIn ? liffProfile?.pictureUrl : null
 
-  const handleLogout = () => {
-    if (liffLoggedIn) {
-      liffLogout()
-    } else {
-      emailLogout()
-    }
-    router.push('/login')
+  const handleLogout = async () => {
+    await fetch('/api/admin/logout', { method: 'POST' }).catch(() => {})
+    router.push('/admin/login')
   }
 
   return (
@@ -112,20 +119,6 @@ export default function AdminShell({
                   overflow: 'hidden',
                 }}
               >
-                {emailUser && (
-                  <p
-                    style={{
-                      color: '#9ca3af',
-                      fontSize: 12,
-                      margin: 0,
-                      padding: '10px 16px',
-                      borderBottom: '1px solid #f3f4f6',
-                      ...fontStyle,
-                    }}
-                  >
-                    {emailUser.email}
-                  </p>
-                )}
                 <button
                   onClick={handleLogout}
                   style={{

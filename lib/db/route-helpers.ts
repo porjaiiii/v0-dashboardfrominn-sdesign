@@ -1,25 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readEnv } from '@/lib/google-sheets'
+import { SESSION_COOKIE, authMode, verifySessionToken } from './admin-session'
 import { PAGE_SIZE } from './constants'
-import { isSupabaseConfigured } from './supabase-rest'
 import type { ListParams, Page } from './types'
 
 /**
- * ป้องกัน API แอดมิน
- *
- * ตอนนี้ระบบล็อกอินของแดชบอร์ดยังเป็นแบบ mock ฝั่ง client (ดู lib/auth-context.tsx)
- * ฝั่งเซิร์ฟเวอร์จึงยังตรวจไม่ได้ว่าผู้เรียกเป็นแอดมินจริง และ route เหล่านี้ใช้ service-role key
- * ดังนั้นเมื่อเชื่อม Supabase แล้ว จะปฏิเสธทุกคำขอ (501) จนกว่าจะทำอย่างใดอย่างหนึ่ง:
- *   1) เพิ่มการตรวจตัวตนจริงในฟังก์ชันนี้ (เช่น ตรวจ LIFF access token / Supabase JWT แล้วเทียบกับ admin_keys)
- *   2) ตั้ง ADMIN_API_ALLOW_UNAUTHENTICATED=true เฉพาะตอนพัฒนาในเครื่อง — ห้ามตั้งบน production
+ * ป้องกัน API แอดมิน — ดู ./admin-session
+ * 401 = ยังไม่ล็อกอิน / เซสชันหมดอายุ, 501 = เชื่อม Supabase แล้วแต่ยังไม่ได้ตั้ง ADMIN_PASSWORD
  */
-export function guardAdmin(): NextResponse | null {
-  if (!isSupabaseConfigured()) return null
-  if (readEnv('ADMIN_API_ALLOW_UNAUTHENTICATED') === 'true') return null
-  return NextResponse.json(
-    { error: 'ยังไม่ได้ตั้งค่าการยืนยันตัวตนแอดมินฝั่งเซิร์ฟเวอร์ (ดู lib/db/route-helpers.ts)' },
-    { status: 501 },
-  )
+export function guardAdmin(req: NextRequest): NextResponse | null {
+  const mode = authMode()
+  if (mode === 'open') return null
+  if (mode === 'unconfigured') {
+    return NextResponse.json(
+      { error: 'ยังไม่ได้ตั้งค่า ADMIN_PASSWORD บนเซิร์ฟเวอร์ (ดู .env.example)' },
+      { status: 501 },
+    )
+  }
+  if (verifySessionToken(req.cookies.get(SESSION_COOKIE)?.value)) return null
+  return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบแอดมิน' }, { status: 401 })
 }
 
 const clampInt = (v: string | null, fallback: number, min: number, max: number) => {
@@ -43,7 +41,7 @@ export function parseListParams(req: NextRequest): ListParams {
 /** ห่อ handler ให้ตรวจสิทธิ์ + จับ error เป็น JSON เหมือนกันทุก route */
 export function handle<T>(fn: (req: NextRequest) => Promise<T>) {
   return async (req: NextRequest) => {
-    const denied = guardAdmin()
+    const denied = guardAdmin(req)
     if (denied) return denied
     try {
       return NextResponse.json(await fn(req), { headers: { 'Cache-Control': 'no-store' } })
