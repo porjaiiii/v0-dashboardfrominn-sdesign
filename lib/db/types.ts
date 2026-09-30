@@ -56,6 +56,13 @@ export interface User {
   updated_at: string
 }
 
+/** แถวผู้ใช้ในรายการ + ธงว่าเป็นแอดมินหรือไม่ (มีแถว active ใน admin_keys) */
+export interface UserListItem extends User {
+  is_admin: boolean
+  /** admin_keys.activated_at — วันที่เปิดสิทธิ์แอดมิน */
+  admin_activated_at: string | null
+}
+
 export type WasteRecordStatus = 'pending' | 'done' | 'cancelled'
 
 export interface WasteRecord {
