@@ -1,11 +1,17 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
 import { fontStyle } from '@/lib/design-tokens'
 import { ADMIN_COLORS } from '@/lib/admin-tokens'
 import { useSidebar } from '@/lib/sidebar-context'
 
 const SIDEBAR_WIDTH = 258
+
+/** เมนูย่อยที่มีหน้าจริงแล้ว */
+const ITEM_HREFS: Record<string, string> = {
+  ผู้ใช้งานทั้งหมด: '/admin/users',
+}
 
 interface MenuGroup {
   title: string
@@ -59,7 +65,7 @@ const rowBase = {
   ...fontStyle,
 } as const
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ activeHref = '/' }: { activeHref?: string }) {
   const { collapsed } = useSidebar()
 
   return (
@@ -96,18 +102,18 @@ export default function AdminSidebar() {
 
         <nav className="flex flex-col" style={{ paddingTop: 1 }}>
           {/* Dashboard (หน้าปัจจุบัน) */}
-          <a
+          <Link
             href="/"
             style={{
               ...rowBase,
               gap: 12,
-              backgroundColor: ADMIN_COLORS.navyActive,
+              backgroundColor: activeHref === '/' ? ADMIN_COLORS.navyActive : 'transparent',
               marginBottom: 2,
             }}
           >
             <GridIcon />
             <span>Dashboard</span>
-          </a>
+          </Link>
 
           {MENU.map((group) => (
             <div key={group.title}>
@@ -115,14 +121,25 @@ export default function AdminSidebar() {
                 <GridIcon />
                 <span>{group.title}</span>
               </div>
-              {group.items.map((item) => (
-                <div
-                  key={item}
-                  style={{ ...rowBase, paddingLeft: 60, whiteSpace: 'pre-line', cursor: 'pointer' }}
-                >
-                  {item}
-                </div>
-              ))}
+              {group.items.map((item) => {
+                const href = ITEM_HREFS[item]
+                const style = {
+                  ...rowBase,
+                  paddingLeft: 60,
+                  whiteSpace: 'pre-line' as const,
+                  cursor: 'pointer',
+                  backgroundColor: href && href === activeHref ? ADMIN_COLORS.navyActive : 'transparent',
+                }
+                return href ? (
+                  <Link key={item} href={href} style={style}>
+                    {item}
+                  </Link>
+                ) : (
+                  <div key={item} style={style}>
+                    {item}
+                  </div>
+                )
+              })}
             </div>
           ))}
         </nav>
