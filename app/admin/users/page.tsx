@@ -15,7 +15,7 @@ import {
 import { fontStyle } from '@/lib/design-tokens'
 import { ADMIN_COLORS } from '@/lib/admin-tokens'
 import { ALL_SUBDISTRICTS, PAGE_SIZE, SUBDISTRICTS } from '@/lib/db/constants'
-import type { DashboardSummary, User } from '@/lib/db/types'
+import type { DashboardSummary, UserListItem } from '@/lib/db/types'
 import ExportCsvDialog from '@/components/dashboard/ExportCsvDialog'
 import { fetchAllRows, toBuDate, useAdminFetch, useAdminList } from '@/lib/use-admin-list'
 
@@ -35,11 +35,14 @@ interface Row {
   registered_iso: string
   registered_at: string
   is_legacy: string
+  /** มีแถว active ใน admin_keys — ป๊อปอัพจะแสดงแบบแอดมิน */
+  is_admin: boolean
+  admin_activated_iso: string | null
 }
 
 const dash = (v: string | null) => v || '-'
 
-function toRow(u: User): Row {
+function toRow(u: UserListItem): Row {
   return {
     line_user_id: u.line_user_id,
     display_user_id: dash(u.display_user_id),
@@ -54,6 +57,8 @@ function toRow(u: User): Row {
     registered_iso: u.registered_at,
     registered_at: toBuDate(u.registered_at),
     is_legacy: String(u.is_legacy),
+    is_admin: u.is_admin,
+    admin_activated_iso: u.admin_activated_at,
   }
 }
 
@@ -85,14 +90,28 @@ function formatThaiDate(iso: string) {
   return `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()]} ${dt.getFullYear() + 543}`
 }
 
-const POPUP_WIDTH = 380
+const POPUP_WIDTH = 420
 const POPUP_HEIGHT = 425
+/** ผู้ใช้ที่เป็นแอดมินมีส่วนเพิ่ม (สิทธิ์/เปิดใช้งาน) จึงสูงกว่า */
+const POPUP_HEIGHT_ADMIN = 520
 
+function formatThaiDateTime(iso: string | null): string {
+  if (!iso) return '-'
+  const dt = new Date(iso)
+  if (isNaN(dt.getTime())) return '-'
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${formatThaiDate(iso)} เวลา ${p(dt.getHours())}:${p(dt.getMinutes())} น.`
+}
+
+/**
+ * ป้ายชื่อ + ค่า — ค่าที่ยาวจะตัดบรรทัดภายในคอลัมน์ของตัวเอง (min-width: 0 + overflow-wrap)
+ * เพื่อไม่ให้ดันคอลัมน์ข้าง ๆ ล้นออกนอกการ์ด
+ */
 function DetailField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center" style={{ gap: 10, height: 32 }}>
-      <span style={{ color: '#154212', fontWeight: 600 }}>{label}</span>
-      <span style={{ color: '#111', fontWeight: 500 }}>{children}</span>
+    <div className="flex" style={{ gap: 8, padding: '5px 0', lineHeight: '22px', alignItems: 'flex-start', minWidth: 0 }}>
+      <span style={{ color: '#154212', fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>{label}</span>
+      <span style={{ color: '#111', fontWeight: 500, minWidth: 0, overflowWrap: 'anywhere' }}>{children}</span>
     </div>
   )
 }
@@ -124,7 +143,8 @@ function UserDetailPopup({
         borderRadius: 14,
         backgroundColor: '#ffffff',
         boxShadow: '0 4px 24px rgba(0,0,0,0.25)',
-        overflow: 'hidden',
+        maxHeight: 'calc(100vh - 16px)',
+        overflowY: 'auto',
         fontSize: 14,
         ...fontStyle,
       }}
@@ -166,7 +186,7 @@ function UserDetailPopup({
             <circle cx="12" cy="10" r="8" fill="#3a8a1e" />
             <circle cx="12" cy="10" r="3.5" fill="#fff" />
           </svg>
-          นักอนุรักษ์มือใหม่
+          {row.is_admin ? 'แอดมิน' : 'นักอนุรักษ์มือใหม่'}
         </div>
       </div>
 
@@ -197,24 +217,25 @@ function UserDetailPopup({
         </div>
         <div style={{ height: 1, backgroundColor: '#154212', margin: '10px 0 6px' }} />
 
-        <div className="flex justify-between" style={{ gap: 10 }}>
-          <div className="flex flex-col" style={{ gap: 4 }}>
+        {/* สองคอลัมน์เท่ากัน (คอลัมน์ละไม่เกินครึ่งการ์ด) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', columnGap: 16 }}>
+          <div style={{ minWidth: 0 }}>
             <DetailField label="ชื่อ-นามสกุล">{row.full_name}</DetailField>
-            <DetailField label="Line">{row.line_user_id}</DetailField>
+            <DetailField label="ชื่อเล่น">{row.nickname}</DetailField>
             <DetailField label="เบอร์โทร">{row.phone_number}</DetailField>
             <DetailField label="ตำบล">{row.subdistrict}</DetailField>
             <DetailField label="วันที่สมัคร">{formatThaiDate(row.registered_iso)}</DetailField>
           </div>
-          <div className="flex flex-col items-end" style={{ gap: 4 }}>
+          <div style={{ minWidth: 0 }}>
             <DetailField label="เพศ">{row.gender}</DetailField>
             <DetailField label="อายุ">{row.age_range} ปี</DetailField>
-            <DetailField label="ประเภท">{row.user_type}</DetailField>
+            <DetailField label="ประเภท">{row.is_admin ? 'แอดมิน' : row.user_type}</DetailField>
             <DetailField label="อาชีพ">{row.occupation}</DetailField>
             <DetailField label="สถานะ">
               <span
                 style={{
                   display: 'inline-block',
-                  padding: '2px 8px',
+                  padding: '0 8px',
                   borderRadius: 4,
                   backgroundColor: ADMIN_COLORS.navy,
                   color: '#ffffff',
@@ -227,6 +248,16 @@ function UserDetailPopup({
             </DetailField>
           </div>
         </div>
+
+        {row.is_admin && (
+          <>
+            <div style={{ height: 1, backgroundColor: '#154212', margin: '12px 0' }} />
+            <div style={{ color: '#154212', fontWeight: 600, fontSize: 16 }}>เปิดสิทธิ์แอดมินเมื่อ</div>
+            <div style={{ color: '#111', fontWeight: 500, fontSize: 15, marginTop: 4 }}>
+              {formatThaiDateTime(row.admin_activated_iso)}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
@@ -241,7 +272,7 @@ export default function AdminUsersPage() {
   const [hover, setHover] = useState<{ row: Row; top: number; left: number } | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const list = useAdminList<User>('/api/admin/users', {
+  const list = useAdminList<UserListItem>('/api/admin/users', {
     page,
     pageSize: PAGE_SIZE,
     sort: SORT_KEYS[sortBy],
@@ -261,7 +292,8 @@ export default function AdminUsersPage() {
     cancelClose()
     const r = e.currentTarget.getBoundingClientRect()
     const left = Math.max(8, Math.min(r.right - POPUP_WIDTH, window.innerWidth - POPUP_WIDTH - 8))
-    const top = Math.max(8, Math.min(r.top + r.height / 2 - POPUP_HEIGHT / 2, window.innerHeight - POPUP_HEIGHT - 8))
+    const h = row.is_admin ? POPUP_HEIGHT_ADMIN : POPUP_HEIGHT
+    const top = Math.max(8, Math.min(r.top + r.height / 2 - h / 2, window.innerHeight - h - 8))
     setHover({ row, top, left })
   }
 
@@ -339,7 +371,7 @@ export default function AdminUsersPage() {
         open={exportOpen}
         onClose={() => setExportOpen(false)}
         onExport={async ({ from, to }) => {
-          const all = await fetchAllRows<User>('/api/admin/users', {
+          const all = await fetchAllRows<UserListItem>('/api/admin/users', {
             sort: SORT_KEYS[sortBy],
             subdistrict: tambon === ALL_SUBDISTRICTS ? undefined : tambon,
             from,

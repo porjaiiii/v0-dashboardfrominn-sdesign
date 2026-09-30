@@ -20,6 +20,7 @@ import type {
   RewardStockRow,
   RewardsOverview,
   User,
+  UserListItem,
   WasteRecord,
   WasteSubtype,
   WasteType,
@@ -79,10 +80,35 @@ function userFilters(p: ListParams, prefix = ''): Record<string, string> {
   return f
 }
 
-export async function getUsers(p: ListParams): Promise<Page<User>> {
+/** line_user_id ของแอดมินที่ยัง active → วันที่เปิดสิทธิ์ (ใช้แสดงหน้ารายละเอียดผู้ใช้แบบแอดมิน) */
+async function activeAdmins(): Promise<Map<string, string | null>> {
+  if (!isSupabaseConfigured()) {
+    return new Map(mock.MOCK_ADMIN_KEYS.map((k) => [k.line_user_id as string, k.activated_at]))
+  }
+  const { rows } = await sbSelect<{ line_user_id: string | null; activated_at: string | null }>('admin_keys', {
+    select: 'line_user_id,activated_at',
+    filters: { status: 'eq.active' },
+    limit: 1000,
+  })
+  return new Map(rows.filter((r) => r.line_user_id).map((r) => [r.line_user_id as string, r.activated_at]))
+}
+
+export async function getUsers(p: ListParams): Promise<Page<UserListItem>> {
+  const [page, admins] = await Promise.all([getUsersRaw(p), activeAdmins()])
+  return {
+    total: page.total,
+    rows: page.rows.map((u) => ({
+      ...u,
+      is_admin: admins.has(u.line_user_id),
+      admin_activated_at: admins.get(u.line_user_id) ?? null,
+    })),
+  }
+}
+
+async function getUsersRaw(p: ListParams): Promise<Page<User>> {
   if (!isSupabaseConfigured()) {
     const range = dateRange(p)
-    const rows = mock.MOCK_USERS.filter(
+    const rows = [...mock.MOCK_USERS, ...mock.MOCK_STAFF_USERS].filter(
       (u) =>
         includes([u.full_name, u.nickname, u.phone_number, u.line_user_id], p.q) &&
         includes([u.subdistrict], p.subdistrict) &&
