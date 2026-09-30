@@ -99,12 +99,12 @@ export default function AdminSidebar({ activeHref = '/' }: { activeHref?: string
           }}
         >
           <Image
-            src="/logo-mascot.png"
+            src="/mascot-sidebar.png"
             alt="โลโก้"
             width={57}
-            height={92}
+            height={59}
             priority
-            style={{ position: 'absolute', right: 11, top: 11, width: 57, height: 'auto' }}
+            style={{ position: 'absolute', right: 11, top: 11 }}
           />
         </div>
 

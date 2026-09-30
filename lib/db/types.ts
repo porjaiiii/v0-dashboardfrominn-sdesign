@@ -215,6 +215,11 @@ export interface ListParams {
   sort?: string
   subdistrict?: string
   status?: string
+  /** ช่วงวันที่ (YYYY-MM-DD, เวลาไทย) — from รวมวันนั้น, to รวมวันนั้น */
+  from?: string
+  to?: string
+  /** false = ไม่รวมรายการที่ถูกลบ/ยกเลิก (ใช้กับ waste_records) */
+  includeDeleted?: boolean
 }
 
 export interface DashboardSummary {

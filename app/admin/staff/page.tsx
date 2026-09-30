@@ -14,7 +14,8 @@ import {
 } from '@/components/dashboard/admin-ui'
 import { ALL_SUBDISTRICTS, PAGE_SIZE, SUBDISTRICTS } from '@/lib/db/constants'
 import type { User } from '@/lib/db/types'
-import { toBuDate, useAdminList } from '@/lib/use-admin-list'
+import ExportCsvDialog from '@/components/dashboard/ExportCsvDialog'
+import { fetchAllRows, toBuDate, useAdminList } from '@/lib/use-admin-list'
 
 interface Staff {
   line_user_id: string
@@ -71,6 +72,7 @@ export default function StaffPage() {
   const [page, setPage] = useState(1)
   const [sortBy, setSortBy] = useState('อายุ')
   const [tambon, setTambon] = useState(ALL_SUBDISTRICTS)
+  const [exportOpen, setExportOpen] = useState(false)
 
   const list = useAdminList<User>('/api/admin/staff', {
     page,
@@ -115,7 +117,7 @@ export default function StaffPage() {
               setPage(1)
             }}
           />
-          <CsvButton onClick={() => downloadCsv('staff.csv', [...KEYS], rows.map((row) => KEYS.map((k) => row[k])))} />
+          <CsvButton onClick={() => setExportOpen(true)} />
         </div>
       </div>
 
@@ -137,6 +139,19 @@ export default function StaffPage() {
           onPage={setPage}
         />
       </div>
+      <ExportCsvDialog
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        onExport={async ({ from, to }) => {
+          const all = await fetchAllRows<User>('/api/admin/staff', {
+            sort: SORT_KEYS[sortBy],
+            subdistrict: tambon === ALL_SUBDISTRICTS ? undefined : tambon,
+            from,
+            to,
+          })
+          downloadCsv(`staff_${from || 'all'}_${to || 'all'}.csv`, [...KEYS], all.map(toStaff).map((row) => KEYS.map((k) => row[k])))
+        }}
+      />
     </AdminShell>
   )
 }

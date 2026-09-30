@@ -6,6 +6,7 @@ import AnnualWasteChart from '@/components/dashboard/AnnualWasteChart'
 import MapCard from '@/components/dashboard/MapCard'
 import WasteTypeChart from '@/components/dashboard/WasteTypeChart'
 import { CsvButton, SummaryCard, downloadCsv } from '@/components/dashboard/admin-ui'
+import ExportCsvDialog, { type ExportRange } from '@/components/dashboard/ExportCsvDialog'
 import { ADMIN_COLORS } from '@/lib/admin-tokens'
 import { COLORS, cardStyle, fontStyle } from '@/lib/design-tokens'
 
@@ -62,12 +63,22 @@ export default function WasteDataPage() {
     return { byType, weight, carbon }
   }, [records])
 
-  const exportCsv = () =>
+  const [exportOpen, setExportOpen] = useState(false)
+
+  const exportCsv = async ({ from, to }: ExportRange) => {
+    // ข้อมูลชุดนี้มาจาก Google Sheets ทั้งหมดอยู่ในหน้าแล้ว จึงกรองตามช่วงวันที่ฝั่งเบราว์เซอร์ (เวลาไทย)
+    const gte = from ? new Date(`${from}T00:00:00+07:00`).getTime() : -Infinity
+    const lt = to ? new Date(`${to}T00:00:00+07:00`).getTime() + 86400000 : Infinity
+    const rows = records.filter((r) => {
+      const t = new Date(r.date).getTime()
+      return Number.isFinite(t) && t >= gte && t < lt
+    })
     downloadCsv(
-      'waste-data.csv',
+      `waste-data_${from || 'all'}_${to || 'all'}.csv`,
       ['date', 'wasteType', 'subdistrict', 'weight_kg', 'carbon'],
-      records.map((r) => [r.date, r.wasteType, r.subdistrict ?? '', r.weight, r.carbon]),
+      rows.map((r) => [r.date, r.wasteType, r.subdistrict ?? '', r.weight, r.carbon]),
     )
+  }
 
   return (
     <AdminShell activeHref="/admin/waste-data">
@@ -75,7 +86,7 @@ export default function WasteDataPage() {
         <h1 style={{ color: ADMIN_COLORS.navy, fontSize: 26, fontWeight: 600, margin: 0, ...fontStyle }}>
           ข้อมูลร่วมอนุรักษ์โลก
         </h1>
-        <CsvButton onClick={exportCsv} />
+        <CsvButton onClick={() => setExportOpen(true)} />
       </div>
 
       <div className="flex" style={{ gap: 26 }}>
@@ -115,6 +126,7 @@ export default function WasteDataPage() {
           <WasteTypeChart selected={district} onSelect={setDistrict} />
         </div>
       </div>
+      <ExportCsvDialog open={exportOpen} onClose={() => setExportOpen(false)} onExport={exportCsv} />
     </AdminShell>
   )
 }

@@ -16,7 +16,8 @@ import { fontStyle } from '@/lib/design-tokens'
 import { ADMIN_COLORS } from '@/lib/admin-tokens'
 import { ALL_SUBDISTRICTS, PAGE_SIZE, SUBDISTRICTS } from '@/lib/db/constants'
 import type { DashboardSummary, User } from '@/lib/db/types'
-import { toBuDate, useAdminFetch, useAdminList } from '@/lib/use-admin-list'
+import ExportCsvDialog from '@/components/dashboard/ExportCsvDialog'
+import { fetchAllRows, toBuDate, useAdminFetch, useAdminList } from '@/lib/use-admin-list'
 
 /** แถวที่แสดงในตาราง/ป๊อปอัพ — แปลงจาก app.users ให้เป็นข้อความพร้อมแสดง */
 interface Row {
@@ -236,6 +237,7 @@ export default function AdminUsersPage() {
   const [page, setPage] = useState(1)
   const [sortBy, setSortBy] = useState(SORT_OPTIONS[0])
   const [tambon, setTambon] = useState(ALL_SUBDISTRICTS)
+  const [exportOpen, setExportOpen] = useState(false)
   const [hover, setHover] = useState<{ row: Row; top: number; left: number } | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -307,9 +309,7 @@ export default function AdminUsersPage() {
         <div className="flex items-center" style={{ gap: 40 }}>
           <PlainSelect label="เรียงตาม :" value={sortBy} options={SORT_OPTIONS} onChange={(v) => { setSortBy(v); setPage(1) }} />
           <PlainSelect label="ตำบล" value={tambon} options={TAMBON_OPTIONS} onChange={(v) => { setTambon(v); setPage(1) }} />
-          <CsvButton
-            onClick={() => downloadCsv('users.csv', [...KEYS], rows.map((r) => KEYS.map((k) => r[k])))}
-          />
+          <CsvButton onClick={() => setExportOpen(true)} />
         </div>
       </div>
 
@@ -335,6 +335,19 @@ export default function AdminUsersPage() {
       {hover && (
         <UserDetailPopup row={hover.row} top={hover.top} left={hover.left} onEnter={cancelClose} onLeave={scheduleClose} />
       )}
+      <ExportCsvDialog
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        onExport={async ({ from, to }) => {
+          const all = await fetchAllRows<User>('/api/admin/users', {
+            sort: SORT_KEYS[sortBy],
+            subdistrict: tambon === ALL_SUBDISTRICTS ? undefined : tambon,
+            from,
+            to,
+          })
+          downloadCsv(`users_${from || 'all'}_${to || 'all'}.csv`, [...KEYS], all.map(toRow).map((r) => KEYS.map((k) => r[k])))
+        }}
+      />
     </AdminShell>
   )
 }

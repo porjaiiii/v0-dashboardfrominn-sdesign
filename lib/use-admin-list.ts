@@ -95,3 +95,27 @@ export function toBuDateTime(iso: string | null | undefined): string {
   const p = (n: number) => String(n).padStart(2, '0')
   return `${toBuDate(iso)} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
+
+/**
+ * ดึงข้อมูลทั้งหมดตามตัวกรอง (ทีละ 1,000 แถว สูงสุด 50,000 แถว) ใช้ตอนส่งออก CSV
+ * ต่างจาก useAdminList ตรงที่ไม่ผูกกับหน้าที่แสดงอยู่ในตาราง
+ */
+export async function fetchAllRows<T>(endpoint: string, params: Params): Promise<T[]> {
+  const out: T[] = []
+  for (let page = 1; page <= 50; page++) {
+    const qs = new URLSearchParams({ export: '1', pageSize: '1000', page: String(page) })
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== '') qs.set(k, String(v))
+    })
+    const res = await fetch(`${endpoint}?${qs}`)
+    if (res.status === 401) {
+      redirectToLogin()
+      throw new Error('กรุณาเข้าสู่ระบบใหม่')
+    }
+    const json = (await res.json()) as Page<T> & { error?: string }
+    if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+    out.push(...json.rows)
+    if (json.rows.length === 0 || out.length >= json.total) break
+  }
+  return out
+}
