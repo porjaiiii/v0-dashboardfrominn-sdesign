@@ -18,9 +18,9 @@ const TREES = [
   { src: '/landing/tree-2.png', w: 132, h: 175, x: 91, size: 8, dur: 3.5, delay: -1.2 },
 ]
 
-/** ขยะบนพื้น: ขวดกับกระป๋องทรงเรียบ (สลับกัน) — ขนาดต่างกันที่ .bottle / .can ใน CSS */
-const BOTTLE = { src: '/landing/shapes/bottle.png', w: 430, h: 722, kind: styles.bottle }
-const CAN = { src: '/landing/shapes/can.png', w: 489, h: 555, kind: styles.can }
+/** ขยะบนพื้น: ขวดกับกระป๋องทรงเรียบ สลับกัน — แต่ละชิ้นสุ่มสีอ่อน/เข้มใหม่ทุกรอบ (ดู light ด้านล่าง) */
+const BOTTLE = { name: 'bottle', w: 430, h: 722, kind: styles.bottle }
+const CAN = { name: 'can', w: 489, h: 555, kind: styles.can }
 const TRASH = [
   { cls: styles.trash1, ...BOTTLE },
   { cls: styles.trash2, ...CAN },
@@ -33,6 +33,8 @@ const INITIAL_KG = 482
 
 export default function HeroScene() {
   const [kg, setKg] = useState(INITIAL_KG)
+  /** สีของขยะแต่ละชิ้น (true = อ่อน) — ค่าเริ่มต้นคงที่ แล้วสุ่มใหม่ทุกครั้งที่ฉากวนครบรอบ (ตอนขยะยังหายอยู่) */
+  const [light, setLight] = useState([false, true, false, true])
 
   return (
     <div className={styles.scene} aria-hidden>
@@ -49,8 +51,10 @@ export default function HeroScene() {
       ))}
 
       {TRASH.map((t, i) => (
-        <div key={i} className={`${styles.trash} ${t.kind} ${t.cls}`}>
-          <Image src={t.src} alt="" width={t.w} height={t.h} />
+        <div key={i} className={`${styles.trash} ${t.kind} ${t.cls}`} data-light={light[i]}>
+          {/* วางทั้งสองสีซ้อนกันแล้วสลับด้วย opacity เพื่อไม่ต้องโหลดรูปใหม่ตอนเปลี่ยนสี */}
+          <Image src={`/landing/shapes/${t.name}-dark.png`} alt="" width={t.w} height={t.h} />
+          <Image src={`/landing/shapes/${t.name}-light.png`} alt="" width={t.w} height={t.h} />
         </div>
       ))}
 
@@ -58,12 +62,17 @@ export default function HeroScene() {
         <div className={styles.hopper}>
           <div className={styles.bobber}>
             <Image src="/landing/mascot.webp" alt="" width={838} height={897} priority />
+            {/* หน้ายิ้มตาหยี โผล่ตอนเก็บขยะ (ซ้อนทับหน้าปกติ) */}
+            <Image className={styles.happy} src="/landing/mascot-happy.webp" alt="" width={838} height={897} priority />
           </div>
         </div>
         <Image className={styles.leaf} src="/landing/shapes/leaf.png" alt="" width={398} height={160} />
       </div>
 
-      <div className={styles.bubble} onAnimationIteration={() => setKg(Math.floor(120 + Math.random() * 870))}>
+      <div className={styles.bubble} onAnimationIteration={() => {
+          setKg(Math.floor(120 + Math.random() * 870))
+          setLight(TRASH.map(() => Math.random() < 0.5))
+        }}>
         <small>Carbon emission</small>
         <strong>{kg} kgCO₂e</strong>
       </div>

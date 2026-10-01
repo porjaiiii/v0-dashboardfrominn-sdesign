@@ -17,9 +17,9 @@ const k = (n: number) => `calc(var(--w) * ${n})`
 
 /** ขยะที่โยนลงถัง: ขวดกับกระป๋องทรงเรียบ (ขวดเรียวกว่าจึงกว้างน้อยกว่า) */
 const TRASH = [
-  { src: '/landing/shapes/bottle.png', w: 430, h: 722, size: 0.11, delay: 0.15, sx: -0.6, sy: -0.1, mx: -0.3, my: -0.28, r0: -40, r1: 70, r2: 200 },
-  { src: '/landing/shapes/can.png', w: 489, h: 555, size: 0.17, delay: 0.4, sx: 0.7, sy: -0.15, mx: 0.35, my: -0.3, r0: 30, r1: -80, r2: -190 },
-  { src: '/landing/shapes/bottle.png', w: 430, h: 722, size: 0.1, delay: 0.65, sx: 0.0, sy: -0.35, mx: 0.0, my: -0.38, r0: -15, r1: 40, r2: 150 },
+  { name: 'bottle', w: 430, h: 722, size: 0.11, delay: 0.15, sx: -0.6, sy: -0.1, mx: -0.3, my: -0.28, r0: -40, r1: 70, r2: 200 },
+  { name: 'can', w: 489, h: 555, size: 0.17, delay: 0.4, sx: 0.7, sy: -0.15, mx: 0.35, my: -0.3, r0: 30, r1: -80, r2: -190 },
+  { name: 'bottle', w: 430, h: 722, size: 0.1, delay: 0.65, sx: 0.0, sy: -0.35, mx: 0.0, my: -0.38, r0: -15, r1: 40, r2: 150 },
 ]
 
 const LEAVES = [
@@ -42,6 +42,13 @@ function Leaf() {
 
 export default function MascotBin({ size = 150, label = 'น้องรักษ์อยู่ในถังขยะ' }: { size?: number; label?: string }) {
   const [active, setActive] = useState(false)
+  /** สีขยะแต่ละชิ้น (true = อ่อน) — สุ่มใหม่ทุกครั้งที่เริ่มเล่น; ค่าเริ่มต้นคงที่เพื่อไม่ให้ hydration ไม่ตรง */
+  const [light, setLight] = useState([false, true, false])
+
+  const start = () => {
+    setLight(TRASH.map(() => Math.random() < 0.5))
+    setActive(true)
+  }
 
   return (
     <button
@@ -50,22 +57,23 @@ export default function MascotBin({ size = 150, label = 'น้องรัก�
       aria-pressed={active}
       className={`${styles.root} ${active ? styles.active : ''}`}
       style={{ '--w': `${size}px` } as CSSProperties}
-      onMouseEnter={() => setActive(true)}
+      onMouseEnter={start}
       onMouseLeave={() => setActive(false)}
-      onFocus={() => setActive(true)}
+      onFocus={start}
       onBlur={() => setActive(false)}
-      onClick={() => setActive((v) => !v)}
+      onClick={() => (active ? setActive(false) : start())}
     >
       {/* eslint-disable @next/next/no-img-element */}
       <img src="/landing/mascot.webp" alt="" aria-hidden className={`${styles.layer} ${styles.mascot}`} />
+      {/* หน้ายิ้มตาหยีซ้อนทับ โผล่ตอนกำลังโยนขยะ */}
+      <img src="/landing/mascot-happy.webp" alt="" aria-hidden className={`${styles.layer} ${styles.mascot} ${styles.happy}`} />
 
       {TRASH.map((t, i) => (
-        <img
+        <span
           key={i}
-          src={t.src}
-          alt=""
           aria-hidden
           className={`${styles.layer} ${styles.trash}`}
+          data-light={light[i]}
           style={
             {
               width: k(t.size),
@@ -79,7 +87,11 @@ export default function MascotBin({ size = 150, label = 'น้องรัก�
               '--r2': `${t.r2}deg`,
             } as CSSProperties
           }
-        />
+        >
+          {/* สองสีซ้อนกัน สลับด้วย opacity (ไม่ต้องโหลดรูปใหม่ตอนเปลี่ยนสี) */}
+          <img src={`/landing/shapes/${t.name}-dark.png`} alt="" width={t.w} height={t.h} />
+          <img src={`/landing/shapes/${t.name}-light.png`} alt="" width={t.w} height={t.h} />
+        </span>
       ))}
 
       {LEAVES.map((l, i) => (

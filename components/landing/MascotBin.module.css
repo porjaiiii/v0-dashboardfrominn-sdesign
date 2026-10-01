@@ -46,6 +46,16 @@
   transform: translateY(calc(var(--w) * -0.07));
 }
 
+/* หน้ายิ้มตาหยี: ซ้อนทับหน้าปกติ (ตำแหน่ง/การเลื่อนเหมือน .mascot) เห็นเฉพาะตอน active */
+.happy {
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.active .happy {
+  opacity: 1;
+}
+
 .bin {
   z-index: 3;
   left: 0;
@@ -60,6 +70,26 @@
   left: calc(var(--w) * 0.4);
   top: calc(var(--w) * 0.1);
   opacity: 0;
+}
+
+.trash > img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ตัวที่ 2 = สีอ่อน เปิดเมื่อ data-light="true" */
+.trash > img:nth-child(2) {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+}
+.trash[data-light='true'] > img:nth-child(1) {
+  opacity: 0;
+}
+.trash[data-light='true'] > img:nth-child(2) {
+  opacity: 1;
 }
 
 .active .trash {
