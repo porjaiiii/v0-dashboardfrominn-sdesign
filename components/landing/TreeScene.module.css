@@ -1,0 +1,99 @@
+/*
+ * ฉากต้นไม้บนเนินเขา (ส่วน "เทียบเท่าต้นไม้" ในหน้าแรก)
+ * - ต้นไม้ไหวเบา ๆ โดยหมุนรอบโคนต้น (แต่ละต้นความเร็ว/จังหวะต่างกัน)
+ * - ใบไม้เล็ก ๆ ร่วงจากยอดต้นบางต้น
+ * - เมฆทรงแคปซูลลอยซ้าย-ขวา
+ * ทั้งหมดเป็น CSS animation ไม่ใช้ JavaScript ตอนเล่น และปิดอัตโนมัติถ้าผู้ใช้ตั้งค่าลดการเคลื่อนไหว
+ */
+
+.scene {
+  overflow: hidden;
+}
+
+/* กล่องตำแหน่งของต้นไม้ (ใช้ translate จัดกึ่งกลาง/ฐานต้น) — ตัวที่ไหวคือรูปข้างใน */
+.treeBox {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
+
+.tree {
+  display: block;
+  width: 100%;
+  height: auto;
+  transform-origin: 50% 100%;
+  animation: sway var(--dur) ease-in-out var(--delay) infinite alternate;
+}
+
+@keyframes sway {
+  from {
+    transform: rotate(-2.6deg);
+  }
+  to {
+    transform: rotate(2.6deg);
+  }
+}
+
+/* ใบไม้ร่วง: เลื่อนลงตามความสูง (top) และแกว่งไปด้านข้าง (left) พร้อมหมุน */
+.leaf {
+  position: absolute;
+  width: 2.4%;
+  pointer-events: none;
+  opacity: 0;
+  animation: fall var(--dur) linear var(--delay) infinite;
+}
+
+@keyframes fall {
+  0% {
+    opacity: 0;
+    top: var(--y0);
+    left: var(--x0);
+    transform: rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  50% {
+    left: var(--xm);
+    transform: rotate(var(--rot));
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    top: var(--y1);
+    left: var(--x1);
+    transform: rotate(calc(var(--rot) * 2));
+  }
+}
+
+/* เมฆแคปซูลลอยไปมา (ขนาด/ตำแหน่งตั้งจาก style, ระยะลอย --amp เป็น % ของความกว้างเมฆ) */
+.cloud {
+  position: absolute;
+  height: 3.69%;
+  border-radius: 999px;
+  background: #d4eaeb;
+  pointer-events: none;
+  animation: drift var(--dur) ease-in-out var(--delay) infinite alternate;
+}
+
+@keyframes drift {
+  from {
+    transform: translateX(calc(var(--amp) * -1));
+  }
+  to {
+    transform: translateX(var(--amp));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tree,
+  .leaf,
+  .cloud {
+    animation: none;
+  }
+  .leaf {
+    display: none;
+  }
+}

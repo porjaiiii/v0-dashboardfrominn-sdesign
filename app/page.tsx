@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import BangKachaoMap from '@/components/dashboard/BangKachaoMap'
+import HeroScene from '@/components/landing/HeroScene'
 import LandingStats from '@/components/landing/LandingStats'
 import SiteNav from '@/components/landing/SiteNav'
 import { AboutSection, CtaBanner, LineSection, SiteFooter } from '@/components/landing/sections'
@@ -11,8 +12,8 @@ import { LOGIN_HREF } from '@/lib/site'
  *
  * รูปภาพประกอบให้วางไว้ที่ public/landing/ (ชื่อไฟล์ตามที่อ้างด้านล่าง)
  * ถ้ายังไม่มีไฟล์ ส่วนนั้นจะแสดงเป็นพื้นสีไล่เฉด ไม่ทำให้หน้าพัง:
- *   hero.jpg, cta-bg.jpg, community-1.jpg, community-2.jpg,
- *   plastic.jpg, paper.jpg, glass.jpg, aluminium.jpg, line-qr.png, phone.png
+ *   hero.jpg, cta-bg.jpg, plastic.jpg, paper.jpg, glass.jpg, aluminium.jpg, phone.png
+ *   (community-1.webp, community-2.webp, line-qr.png มีแล้ว)
  */
 
 const TAMBON = ['บางกะเจ้า', 'บางยอ', 'บางกอบัว', 'บางน้ำผึ้ง', 'บางกระสอบ', 'ทรงคนอง']
@@ -30,9 +31,10 @@ export default function LandingPage() {
       {/* ───────── Hero + เมนูบน ───────── */}
       <header className="relative overflow-hidden" style={{ ...photo('hero.jpg', FOREST), minHeight: 300 }}>
         <div className="absolute inset-0 bg-black/20" />
+        <HeroScene />
         <SiteNav active="home" variant="hero" />
 
-        <div className="relative z-10 px-5 pb-10 pt-6 md:px-16 md:pb-16 md:pt-10">
+        <div className="relative z-10 px-5 pb-28 pt-6 md:px-16 md:pb-32 md:pt-10">
           <h1 className="text-[34px] font-bold leading-[1.15] text-white drop-shadow-lg md:text-[56px]">
             เปลี่ยนขยะให้มีคุณค่า
             <br />
@@ -67,9 +69,9 @@ export default function LandingPage() {
       {/* ───────── เสียงของชุมชน ───────── */}
       <section className="px-4 pb-8 md:px-16">
         <div className="mx-auto grid max-w-5xl gap-3 md:grid-cols-2 md:gap-5">
-          <div className="h-[240px] rounded-xl md:h-[300px]" style={photo('community-1.jpg', SOFT)} role="img" aria-label="กิจกรรมคัดแยกขยะในชุมชน" />
+          <div className="h-[240px] rounded-xl md:h-[300px]" style={photo('community-1.webp', SOFT)} role="img" aria-label="กิจกรรมคัดแยกขยะในชุมชน" />
           <div>
-            <div className="h-[170px] rounded-xl md:h-[190px]" style={photo('community-2.jpg', SOFT)} role="img" aria-label="การรับขยะในชุมชน" />
+            <div className="h-[170px] rounded-xl md:h-[190px]" style={photo('community-2.webp', SOFT)} role="img" aria-label="การรับขยะในชุมชน" />
             <h3 className="mt-3 text-2xl font-bold" style={{ color: DEEP }}>น้องรักษ์จากเสียงของชุมชน</h3>
             <p className="mt-1 text-[13px] leading-6 text-[#2f7d32]">
               ทีมงานน้องรักษ์ลงพื้นที่พูดคุยกับคนในชุมชนคุ้งบางกะเจ้า เพื่อทำความเข้าใจพฤติกรรมการจัดการขยะ รับฟังปัญหา

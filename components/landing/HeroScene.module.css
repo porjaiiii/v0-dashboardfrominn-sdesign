@@ -1,0 +1,273 @@
+/*
+ * ฉากพื้นหลัง hero: น้องรักษ์กระโดดเข้าจากซ้าย เดินผ่านต้นไม้ เก็บขยะ 4 ชิ้น
+ * (ใบไม้เด้งเหนือหัวทุกครั้งที่เก็บ) แล้วพ่นก้อน "Carbon emission" ออกมา ก่อนเดินออกขวา แล้ววนซ้ำ
+ *
+ * ทุกอย่างอิงไทม์ไลน์เดียว 18 วินาที (--T) — ค่า % ในแต่ละ keyframes คือเวลา/18
+ *   0–1.4s   กระโดดเข้า (0–7.8%)
+ *   เก็บขยะ  4.0 / 6.8 / 9.4 / 12.2s  (ขยะอยู่ที่ x = 30 / 48 / 64 / 80%)
+ *   12.6–14.4s  พ่นก้อนคาร์บอน
+ *   14.6–16.4s  เดินออกขวา
+ * ถ้าจะปรับจังหวะ ให้ปรับ % ใน keyframes ให้สอดคล้องกัน
+ *
+ * หน่วยขนาดใช้ cqw (สัดส่วนความกว้างฉาก) ฉากจึงย่อ-ขยายตามหน้าจอ
+ */
+
+.scene {
+  --T: 18s;
+  --mw: clamp(46px, 7.2cqw, 78px); /* ความกว้างน้องรักษ์ */
+  --tw: clamp(24px, 4cqw, 44px); /* ความกว้างขยะ */
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  container-type: inline-size;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ───── พื้น + ต้นไม้ ───── */
+.ground {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -6%;
+  height: 22%;
+  min-height: 46px;
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  background: linear-gradient(#6fbf4a, #2f7d32 70%, #1f5a24);
+}
+
+.tree {
+  position: absolute;
+  bottom: clamp(14px, 3.4cqw, 34px);
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
+  z-index: 1;
+}
+
+.tree > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transform-origin: 50% 100%;
+  animation: sway var(--dur) ease-in-out var(--delay) infinite alternate;
+}
+
+@keyframes sway {
+  from {
+    transform: rotate(-2.4deg);
+  }
+  to {
+    transform: rotate(2.4deg);
+  }
+}
+
+/* ───── ขยะบนพื้น ───── */
+.trash {
+  position: absolute;
+  bottom: clamp(14px, 3.4cqw, 34px);
+  width: var(--tw);
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.trash > img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.trash1 {
+  left: 30%;
+  animation: collect1 var(--T) linear infinite;
+}
+.trash2 {
+  left: 48%;
+  animation: collect2 var(--T) linear infinite;
+}
+.trash3 {
+  left: 64%;
+  animation: collect3 var(--T) linear infinite;
+}
+.trash4 {
+  left: 80%;
+  animation: collect4 var(--T) linear infinite;
+}
+
+/* ขยะลอยเข้าหาน้องรักษ์แล้วหายไป; ก่อนจบรอบ (97%) กลับมาวางที่เดิมตอนน้องรักษ์อยู่นอกจอ */
+@keyframes collect1 {
+  0%, 21.5% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+  23.5%, 97% { opacity: 0; transform: translateX(-50%) translate(-2.2cqw, -60px) scale(0.3); }
+  97.01% { opacity: 0; transform: translateX(-50%) translate(0, 0) scale(1); }
+  100% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+}
+@keyframes collect2 {
+  0%, 37.1% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+  39.1%, 97% { opacity: 0; transform: translateX(-50%) translate(-2.2cqw, -60px) scale(0.3); }
+  97.01% { opacity: 0; transform: translateX(-50%) translate(0, 0) scale(1); }
+  100% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+}
+@keyframes collect3 {
+  0%, 51.5% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+  53.5%, 97% { opacity: 0; transform: translateX(-50%) translate(-2.2cqw, -60px) scale(0.3); }
+  97.01% { opacity: 0; transform: translateX(-50%) translate(0, 0) scale(1); }
+  100% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+}
+@keyframes collect4 {
+  0%, 67.1% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+  69.1%, 97% { opacity: 0; transform: translateX(-50%) translate(-2.2cqw, -60px) scale(0.3); }
+  97.01% { opacity: 0; transform: translateX(-50%) translate(0, 0) scale(1); }
+  100% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+}
+
+/* ───── น้องรักษ์: walker (ตำแหน่งแนวนอน) → hopper (กระโดด/ย่อ/พอง) → bobber (เด้งตอนเดิน) ───── */
+.walker {
+  position: absolute;
+  bottom: clamp(14px, 3.4cqw, 34px);
+  width: var(--mw);
+  transform: translateX(-50%);
+  z-index: 3;
+  animation: walkX var(--T) linear infinite;
+}
+
+@keyframes walkX {
+  0% { left: -12%; }
+  7.8% { left: 10%; }
+  20%, 24.4% { left: 28%; }
+  35.6%, 40% { left: 46%; }
+  50%, 54.4% { left: 62%; }
+  65.6%, 81.1% { left: 78%; }
+  91.1%, 100% { left: 112%; }
+}
+
+.hopper {
+  transform-origin: 50% 100%;
+  animation: hop var(--T) ease-in-out infinite;
+}
+
+@keyframes hop {
+  0% { transform: translateY(0) scale(1, 1); }
+  3.6% { transform: translateY(-90px) scale(0.95, 1.08); }
+  7.8% { transform: translateY(0) scale(1.18, 0.8); }
+  9% { transform: translateY(0) scale(1, 1); }
+  20% { transform: scale(1, 1); }
+  22% { transform: scale(1.14, 0.8); }
+  24.4% { transform: scale(1, 1); }
+  35.6% { transform: scale(1, 1); }
+  37.8% { transform: scale(1.14, 0.8); }
+  40% { transform: scale(1, 1); }
+  50% { transform: scale(1, 1); }
+  52.2% { transform: scale(1.14, 0.8); }
+  54.4% { transform: scale(1, 1); }
+  65.6% { transform: scale(1, 1); }
+  67.8% { transform: scale(1.14, 0.8); }
+  70% { transform: scale(1, 1); }
+  72% { transform: scale(1.22, 1.22); }
+  74% { transform: scale(0.94, 1.06); }
+  76.5% { transform: scale(1, 1); }
+  100% { transform: scale(1, 1); }
+}
+
+.bobber {
+  transform-origin: 50% 100%;
+  animation: bob 0.5s ease-in-out infinite alternate;
+}
+
+.bobber > img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+@keyframes bob {
+  from {
+    transform: translateY(0) rotate(-2deg);
+  }
+  to {
+    transform: translateY(-5px) rotate(2deg);
+  }
+}
+
+/* ใบไม้เด้งเหนือหัวทุกครั้งที่เก็บขยะ (เก็บ 4 ครั้งในรอบเดียว) */
+.leaf {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  width: calc(var(--mw) * 0.34);
+  margin-left: calc(var(--mw) * -0.17);
+  opacity: 0;
+  animation: leafPop var(--T) ease-out infinite;
+}
+
+@keyframes leafPop {
+  0%, 22.2% { opacity: 0; transform: translateY(0) scale(0) rotate(-20deg); }
+  23.4% { opacity: 1; transform: translateY(-14px) scale(1.25) rotate(8deg); }
+  26.7% { opacity: 0; transform: translateY(-40px) scale(1) rotate(0deg); }
+  37.8% { opacity: 0; transform: translateY(0) scale(0) rotate(-20deg); }
+  39% { opacity: 1; transform: translateY(-14px) scale(1.25) rotate(8deg); }
+  42.2% { opacity: 0; transform: translateY(-40px) scale(1) rotate(0deg); }
+  52.2% { opacity: 0; transform: translateY(0) scale(0) rotate(-20deg); }
+  53.4% { opacity: 1; transform: translateY(-14px) scale(1.25) rotate(8deg); }
+  56.7% { opacity: 0; transform: translateY(-40px) scale(1) rotate(0deg); }
+  67.8% { opacity: 0; transform: translateY(0) scale(0) rotate(-20deg); }
+  69% { opacity: 1; transform: translateY(-14px) scale(1.25) rotate(8deg); }
+  72.2% { opacity: 0; transform: translateY(-40px) scale(1) rotate(0deg); }
+  100% { opacity: 0; }
+}
+
+/* ก้อน Carbon emission ที่น้องรักษ์พ่นออกมาตอนเก็บครบ ลอยขึ้นด้านบนแล้วจางหาย */
+.bubble {
+  position: absolute;
+  left: calc(78% - 5.5cqw);
+  bottom: calc(var(--mw) * 1.05 + clamp(14px, 3.4cqw, 34px));
+  z-index: 4;
+  min-width: clamp(84px, 11cqw, 128px);
+  padding: 8px 14px 9px;
+  border-radius: 46% 54% 50% 50% / 56% 52% 48% 44%;
+  background: radial-gradient(circle at 35% 30%, #8a929c, #4b5563);
+  color: #ffffff;
+  text-align: center;
+  line-height: 1.2;
+  opacity: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  animation: puff var(--T) ease-out infinite;
+}
+
+.bubble small {
+  display: block;
+  font-size: clamp(9px, 1.15cqw, 12px);
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.bubble strong {
+  display: block;
+  font-size: clamp(12px, 1.7cqw, 18px);
+  font-weight: 700;
+}
+
+@keyframes puff {
+  0%, 72% { opacity: 0; transform: translate(0, 0) scale(0.2); }
+  74.5% { opacity: 1; transform: translate(0.5cqw, -10px) scale(1.05); }
+  91% { opacity: 0; transform: translate(3cqw, -90px) scale(1.2); }
+  100% { opacity: 0; transform: translate(3cqw, -90px) scale(1.2); }
+}
+
+/* ลดการเคลื่อนไหว: แสดงภาพนิ่ง (น้องรักษ์ยืนกลางฉาก ขยะอยู่ครบ ไม่มีก้อนคาร์บอน/ใบไม้) */
+@media (prefers-reduced-motion: reduce) {
+  .tree > img,
+  .trash,
+  .walker,
+  .hopper,
+  .bobber,
+  .leaf,
+  .bubble {
+    animation: none;
+  }
+  .walker {
+    left: 38%;
+  }
+  .leaf,
+  .bubble {
+    display: none;
+  }
+}

@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { ReactNode, useEffect, useMemo, useState } from 'react'
 import { KG_CO2_PER_TREE } from '@/lib/db/constants'
+import styles from './TreeScene.module.css'
 
 interface PublicStats {
   users: number
@@ -125,11 +126,58 @@ function layoutTrees(count: number): Placed[] {
   return out
 }
 
+/** อัตราส่วนสูง/กว้างของรูปต้นไม้แต่ละแบบ — ใช้หาตำแหน่งยอดต้นเพื่อปล่อยใบไม้ */
+const TREE_RATIO = { 1: 209 / 185, 2: 175 / 132 } as const
+
+/**
+ * เมฆทรงแคปซูล (สี #D4EAEB, border-radius 999px ตามแบบ) — ตำแหน่งเดิมของเมฆที่เคยวาดติดในรูปเนินเขา
+ * ค่าเป็น % ของภาพ (636x407); amp = ระยะลอยซ้าย-ขวา เป็น % ของความกว้างเมฆตัวนั้น
+ */
+const CLOUDS = [
+  { left: 20.3, top: 44.7, w: 6.3, amp: 110, dur: 13, delay: -2 },
+  { left: 69.5, top: 44.7, w: 6.3, amp: 120, dur: 15, delay: -7 },
+  { left: 51.4, top: 47.7, w: 13.1, amp: 50, dur: 19, delay: -4 },
+  { left: 48.3, top: 50.6, w: 8, amp: 80, dur: 16, delay: -11 },
+]
+
+function SmallLeaf() {
+  return (
+    <svg viewBox="0 0 24 32" width="100%" aria-hidden>
+      <path d="M12 31C4 24 2 12 12 1c10 11 8 23 0 30z" fill="#6fb83a" stroke="#3f8a24" strokeWidth="1.4" />
+    </svg>
+  )
+}
+
 function TreeVisual({ trees }: { trees: number | null }) {
   const icons = trees === null ? 0 : Math.min(MAX_ICONS, Math.max(trees > 0 ? 1 : 0, Math.round(trees)))
   const perIcon = trees !== null && trees > MAX_ICONS ? Math.ceil(trees / MAX_ICONS) : 1
   const drawn = trees !== null && trees > MAX_ICONS ? Math.round(trees / perIcon) : icons
   const placed = useMemo(() => layoutTrees(drawn), [drawn])
+
+  /** ใบไม้ร่วงจากยอดต้นไม้ทุก ๆ 3 ต้น (สูงสุด 9 ใบ) — ค่าทั้งหมดคงที่ ไม่สุ่ม */
+  const leaves = useMemo(
+    () =>
+      placed
+        .filter((_, i) => i % 3 === 1)
+        .slice(0, 9)
+        .map((p, i) => {
+          const treeH = ((p.w / 100) * HILL_W * TREE_RATIO[p.variant]) / HILL_H * 100 // ความสูงต้น เป็น % ของภาพ
+          const side = i % 2 === 0 ? 1 : -1
+          const y0 = p.y - treeH * 0.8
+          return {
+            key: `leaf-${p.key}`,
+            x0: p.x,
+            xm: p.x + side * (1.5 + (i % 3)),
+            x1: p.x - side * (1 + (i % 2)),
+            y0,
+            y1: Math.min(97, p.y + 6),
+            rot: side * (120 + (i % 3) * 40),
+            dur: 6 + (i % 4) * 1.2,
+            delay: -(i * 1.7),
+          }
+        }),
+    [placed],
+  )
 
   return (
     <div className="rounded-2xl bg-[#f3fce8] px-4 pt-5 text-center">
@@ -142,22 +190,58 @@ function TreeVisual({ trees }: { trees: number | null }) {
       )}
 
       <div
-        className="relative mx-auto mt-2 w-full max-w-[760px]"
+        className={`relative mx-auto mt-2 w-full max-w-[760px] ${styles.scene}`}
         style={{ aspectRatio: `${HILL_W} / ${HILL_H}`, backgroundImage: 'url(/landing/hill.png)', backgroundSize: '100% 100%' }}
         role="img"
         aria-label={trees === null ? 'ต้นไม้เทียบเท่า' : `ต้นไม้เทียบเท่าประมาณ ${fmt(trees)} ต้น`}
       >
-        {placed.map((p) => (
-          <Image
-            key={p.key}
-            src={p.variant === 1 ? '/landing/tree-1.png' : '/landing/tree-2.png'}
-            alt=""
+        {CLOUDS.map((c, i) => (
+          <div
+            key={i}
             aria-hidden
-            width={p.variant === 1 ? 185 : 132}
-            height={p.variant === 1 ? 209 : 175}
-            className="absolute h-auto -translate-x-1/2 -translate-y-full"
-            style={{ left: `${p.x}%`, top: `${p.y}%`, width: `${p.w}%` }}
+            className={styles.cloud}
+            style={{
+              left: `${c.left}%`,
+              top: `${c.top}%`,
+              width: `${c.w}%`,
+              ['--amp' as string]: `${c.amp}%`,
+              ['--dur' as string]: `${c.dur}s`,
+              ['--delay' as string]: `${c.delay}s`,
+            }}
           />
+        ))}
+
+        {placed.map((p, i) => (
+          <div key={p.key} aria-hidden className={styles.treeBox} style={{ left: `${p.x}%`, top: `${p.y}%`, width: `${p.w}%` }}>
+            <Image
+              src={p.variant === 1 ? '/landing/tree-1.png' : '/landing/tree-2.png'}
+              alt=""
+              width={p.variant === 1 ? 185 : 132}
+              height={p.variant === 1 ? 209 : 175}
+              className={styles.tree}
+              style={{ ['--dur' as string]: `${3.2 + (i % 5) * 0.55}s`, ['--delay' as string]: `${-(i % 7) * 0.6}s` }}
+            />
+          </div>
+        ))}
+
+        {leaves.map((l) => (
+          <div
+            key={l.key}
+            aria-hidden
+            className={styles.leaf}
+            style={{
+              ['--x0' as string]: `${l.x0}%`,
+              ['--xm' as string]: `${l.xm}%`,
+              ['--x1' as string]: `${l.x1}%`,
+              ['--y0' as string]: `${l.y0}%`,
+              ['--y1' as string]: `${l.y1}%`,
+              ['--rot' as string]: `${l.rot}deg`,
+              ['--dur' as string]: `${l.dur}s`,
+              ['--delay' as string]: `${l.delay}s`,
+            }}
+          >
+            <SmallLeaf />
+          </div>
         ))}
       </div>
     </div>
@@ -205,7 +289,7 @@ export default function LandingStats() {
           bg="#d6f3b7"
           wave="#e5f9cf"
           iconBg="#7cc93a"
-          icon={<svg {...svgProps}><path d="M7 19H4l3-5M17 5h3l-3 5M12 3l-2 4h4zM9 21l3-5 3 5z" /></svg>}
+          icon={<Image src="/landing/recycle-icon.png" alt="" aria-hidden width={16} height={16} />}
           label="ขยะรีไซเคิลสะสม"
           value={show(stats?.totalWeightKg)}
           unit="kg"
@@ -214,7 +298,7 @@ export default function LandingStats() {
           bg="#fde2de"
           wave="#fff0ee"
           iconBg="#ef8a7f"
-          icon={<svg {...svgProps}><path d="M7 19H4l3-5M17 5h3l-3 5M12 3l-2 4h4zM9 21l3-5 3 5z" /></svg>}
+          icon={<Image src="/landing/recycle-icon.png" alt="" aria-hidden width={16} height={16} />}
           label="ลดก๊าซเรือนกระจก"
           value={show(stats?.totalCo2Kg)}
           unit="kgCO₂e"
