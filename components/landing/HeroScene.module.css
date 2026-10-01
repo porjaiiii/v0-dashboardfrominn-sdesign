@@ -76,6 +76,20 @@
   height: auto;
 }
 
+/* ขยะมี 2 สี (เข้ม/อ่อน) ซ้อนกัน: ตัวที่ 2 = สีอ่อน เปิดเมื่อ data-light="true" */
+.trash > img:nth-child(2) {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+}
+.trash[data-light='true'] > img:nth-child(1) {
+  opacity: 0;
+}
+.trash[data-light='true'] > img:nth-child(2) {
+  opacity: 1;
+}
+
 /* ขวดเรียวกว่ากระป๋อง จึงกว้างน้อยกว่า */
 .trash.bottle {
   width: calc(var(--tw) * 0.62);
@@ -101,30 +115,26 @@
   animation: collect4 var(--T) linear infinite;
 }
 
-/* ขยะลอยเข้าหาน้องรักษ์แล้วหายไป; ก่อนจบรอบ (97%) กลับมาวางที่เดิมตอนน้องรักษ์อยู่นอกจอ */
+/* ขยะ fade-in ตอนต้นรอบ (3%) ขณะน้องรักษ์ยังกระโดดเข้าอยู่ → รอให้เก็บ → ลอยเข้าหาน้องรักษ์แล้วหาย; ช่วงหายอยู่ (ปลายรอบ) คือจังหวะที่สลับสีขยะ */
 @keyframes collect1 {
-  0%, 21.5% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
-  23.5%, 97% { opacity: 0; transform: translateX(-50%) translate(-2.2cqw, -60px) scale(0.3); }
-  97.01% { opacity: 0; transform: translateX(-50%) translate(0, 0) scale(1); }
-  100% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+  0% { opacity: 0; transform: translateX(-50%) translate(0, 0) scale(1); }
+  3%, 21.5% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+  23.5%, 100% { opacity: 0; transform: translateX(-50%) translate(-2.2cqw, -60px) scale(0.3); }
 }
 @keyframes collect2 {
-  0%, 37.1% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
-  39.1%, 97% { opacity: 0; transform: translateX(-50%) translate(-2.2cqw, -60px) scale(0.3); }
-  97.01% { opacity: 0; transform: translateX(-50%) translate(0, 0) scale(1); }
-  100% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+  0% { opacity: 0; transform: translateX(-50%) translate(0, 0) scale(1); }
+  3%, 37.1% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+  39.1%, 100% { opacity: 0; transform: translateX(-50%) translate(-2.2cqw, -60px) scale(0.3); }
 }
 @keyframes collect3 {
-  0%, 51.5% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
-  53.5%, 97% { opacity: 0; transform: translateX(-50%) translate(-2.2cqw, -60px) scale(0.3); }
-  97.01% { opacity: 0; transform: translateX(-50%) translate(0, 0) scale(1); }
-  100% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+  0% { opacity: 0; transform: translateX(-50%) translate(0, 0) scale(1); }
+  3%, 51.5% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+  53.5%, 100% { opacity: 0; transform: translateX(-50%) translate(-2.2cqw, -60px) scale(0.3); }
 }
 @keyframes collect4 {
-  0%, 67.1% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
-  69.1%, 97% { opacity: 0; transform: translateX(-50%) translate(-2.2cqw, -60px) scale(0.3); }
-  97.01% { opacity: 0; transform: translateX(-50%) translate(0, 0) scale(1); }
-  100% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+  0% { opacity: 0; transform: translateX(-50%) translate(0, 0) scale(1); }
+  3%, 67.1% { opacity: 1; transform: translateX(-50%) translate(0, 0) scale(1); }
+  69.1%, 100% { opacity: 0; transform: translateX(-50%) translate(-2.2cqw, -60px) scale(0.3); }
 }
 
 /* ───── น้องรักษ์: walker (ตำแหน่งแนวนอน) → hopper (กระโดด/ย่อ/พอง) → bobber (เด้งตอนเดิน) ───── */
@@ -180,12 +190,37 @@
   animation: bob 0.5s ease-in-out infinite alternate;
 }
 
+.bobber {
+  position: relative;
+}
+
 .bobber > img {
   display: block;
   width: 100%;
   height: auto;
   /* รูปต้นฉบับหันซ้าย — กลับด้านให้หันขวาตามทิศที่เดิน */
   transform: scaleX(-1);
+}
+
+/* หน้ายิ้มซ้อนทับหน้าปกติเฉพาะช่วงเก็บขยะ 4 ครั้ง (ตรงกับช่วงย่อตัวใน hop) */
+.bobber > img.happy {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  animation: happyFace var(--T) linear infinite;
+}
+
+@keyframes happyFace {
+  0%, 19.99% { opacity: 0; }
+  20%, 24.4% { opacity: 1; }
+  24.41%, 35.59% { opacity: 0; }
+  35.6%, 40% { opacity: 1; }
+  40.01%, 49.99% { opacity: 0; }
+  50%, 54.4% { opacity: 1; }
+  54.41%, 65.59% { opacity: 0; }
+  65.6%, 70% { opacity: 1; }
+  70.01%, 100% { opacity: 0; }
 }
 
 @keyframes bob {
@@ -271,7 +306,8 @@
   .hopper,
   .bobber,
   .leaf,
-  .bubble {
+  .bubble,
+  .bobber > img.happy {
     animation: none;
   }
   .walker {
