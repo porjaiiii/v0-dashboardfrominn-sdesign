@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import type { CSSProperties } from 'react'
 
 /** สี/ตัวช่วยร่วมของหน้าเว็บสาธารณะ */
@@ -18,10 +19,8 @@ export const photo = (file: string, fallback: string): CSSProperties => ({
 
 export function RecycleBadge({ color }: { color: string }) {
   return (
-    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white" style={{ backgroundColor: color }}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M7 19H4l3-5M17 5h3l-3 5M12 3l-2 4h4zM9 21l3-5 3 5z" />
-      </svg>
+    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: color }}>
+      <Image src="/landing/recycle-icon.png" alt="" aria-hidden width={20} height={20} />
     </span>
   )
 }
