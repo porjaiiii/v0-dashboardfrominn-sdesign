@@ -12,8 +12,8 @@ import { LOGIN_HREF } from '@/lib/site'
  *
  * รูปภาพประกอบให้วางไว้ที่ public/landing/ (ชื่อไฟล์ตามที่อ้างด้านล่าง)
  * ถ้ายังไม่มีไฟล์ ส่วนนั้นจะแสดงเป็นพื้นสีไล่เฉด ไม่ทำให้หน้าพัง:
- *   hero.jpg, cta-bg.jpg, plastic.jpg, paper.jpg, glass.jpg, aluminium.jpg, phone.png
- *   (community-1.webp, community-2.webp, line-qr.png มีแล้ว)
+ *   cta-bg.jpg, plastic.jpg, paper.jpg, glass.jpg, aluminium.jpg, phone.png
+ *   (hero.webp, community-1.webp, community-2.webp, line-qr.png มีแล้ว)
  */
 
 const TAMBON = ['บางกะเจ้า', 'บางยอ', 'บางกอบัว', 'บางน้ำผึ้ง', 'บางกระสอบ', 'ทรงคนอง']
@@ -29,7 +29,7 @@ export default function LandingPage() {
   return (
     <div id="top" className="min-h-screen overflow-x-clip bg-white text-[#1c2a1a]">
       {/* ───────── Hero + เมนูบน ───────── */}
-      <header className="relative overflow-hidden" style={{ ...photo('hero.jpg', FOREST), minHeight: 300 }}>
+      <header className="relative overflow-hidden" style={{ ...photo('hero.webp', FOREST), minHeight: 300 }}>
         <div className="absolute inset-0 bg-black/20" />
         <HeroScene />
         <SiteNav active="home" variant="hero" />

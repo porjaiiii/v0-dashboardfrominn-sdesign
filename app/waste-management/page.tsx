@@ -22,10 +22,10 @@ function Arrow() {
 
 function TrashPics() {
   return (
-    <div className="flex items-end justify-center -space-x-2">
-      {['bottle', 'cup', 'carton'].map((n) => (
-        <Image key={n} src={`/landing/trash-${n}.png`} alt="" aria-hidden width={64} height={62} className="h-auto w-14 md:w-16" />
-      ))}
+    <div className="flex items-end justify-center gap-2">
+      <Image src="/landing/shapes/bottle.png" alt="" aria-hidden width={430} height={722} className="h-auto w-9 md:w-10" />
+      <Image src="/landing/shapes/can.png" alt="" aria-hidden width={489} height={555} className="h-auto w-12 md:w-14" />
+      <Image src="/landing/shapes/bottle.png" alt="" aria-hidden width={430} height={722} className="h-auto w-8 md:w-9" />
     </div>
   )
 }

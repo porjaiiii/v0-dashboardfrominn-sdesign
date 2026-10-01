@@ -27,8 +27,13 @@ export function RecycleBadge({ color }: { color: string }) {
 
 export function Leaf({ className }: { className: string }) {
   return (
-    <svg aria-hidden viewBox="0 0 120 60" className={`pointer-events-none absolute ${className}`} fill="#a8e063" opacity="0.7">
-      <path d="M0 55C20 10 70 0 120 8c-5 40-50 60-120 47z" />
-    </svg>
+    <Image
+      src="/landing/shapes/leaf.png"
+      alt=""
+      aria-hidden
+      width={398}
+      height={160}
+      className={`pointer-events-none absolute object-contain opacity-90 ${className}`}
+    />
   )
 }

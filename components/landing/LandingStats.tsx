@@ -141,11 +141,7 @@ const CLOUDS = [
 ]
 
 function SmallLeaf() {
-  return (
-    <svg viewBox="0 0 24 32" width="100%" aria-hidden>
-      <path d="M12 31C4 24 2 12 12 1c10 11 8 23 0 30z" fill="#6fb83a" stroke="#3f8a24" strokeWidth="1.4" />
-    </svg>
-  )
+  return <Image src="/landing/shapes/leaf.png" alt="" aria-hidden width={398} height={160} style={{ width: '100%', height: 'auto' }} />
 }
 
 function TreeVisual({ trees }: { trees: number | null }) {

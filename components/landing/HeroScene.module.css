@@ -76,6 +76,14 @@
   height: auto;
 }
 
+/* ขวดเรียวกว่ากระป๋อง จึงกว้างน้อยกว่า */
+.trash.bottle {
+  width: calc(var(--tw) * 0.62);
+}
+.trash.can {
+  width: calc(var(--tw) * 0.85);
+}
+
 .trash1 {
   left: 30%;
   animation: collect1 var(--T) linear infinite;
@@ -176,6 +184,8 @@
   display: block;
   width: 100%;
   height: auto;
+  /* รูปต้นฉบับหันซ้าย — กลับด้านให้หันขวาตามทิศที่เดิน */
+  transform: scaleX(-1);
 }
 
 @keyframes bob {
@@ -192,8 +202,9 @@
   position: absolute;
   bottom: 100%;
   left: 50%;
-  width: calc(var(--mw) * 0.34);
-  margin-left: calc(var(--mw) * -0.17);
+  width: calc(var(--mw) * 0.5);
+  height: auto;
+  margin-left: calc(var(--mw) * -0.25);
   opacity: 0;
   animation: leafPop var(--T) ease-out infinite;
 }

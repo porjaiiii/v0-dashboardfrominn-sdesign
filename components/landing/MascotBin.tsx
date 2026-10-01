@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { CSSProperties, useState } from 'react'
 import styles from './MascotBin.module.css'
 
@@ -14,10 +15,11 @@ import styles from './MascotBin.module.css'
 /** ตำแหน่งทั้งหมดเป็นสัดส่วนของ --w (ความกว้างถัง) */
 const k = (n: number) => `calc(var(--w) * ${n})`
 
+/** ขยะที่โยนลงถัง: ขวดกับกระป๋องทรงเรียบ (ขวดเรียวกว่าจึงกว้างน้อยกว่า) */
 const TRASH = [
-  { src: '/landing/trash-bottle.png', delay: 0.15, sx: -0.6, sy: -0.1, mx: -0.3, my: -0.28, r0: -40, r1: 70, r2: 200 },
-  { src: '/landing/trash-cup.png', delay: 0.4, sx: 0.7, sy: -0.15, mx: 0.35, my: -0.3, r0: 30, r1: -80, r2: -190 },
-  { src: '/landing/trash-carton.png', delay: 0.65, sx: 0.0, sy: -0.35, mx: 0.0, my: -0.38, r0: -15, r1: 40, r2: 150 },
+  { src: '/landing/shapes/bottle.png', w: 430, h: 722, size: 0.11, delay: 0.15, sx: -0.6, sy: -0.1, mx: -0.3, my: -0.28, r0: -40, r1: 70, r2: 200 },
+  { src: '/landing/shapes/can.png', w: 489, h: 555, size: 0.17, delay: 0.4, sx: 0.7, sy: -0.15, mx: 0.35, my: -0.3, r0: 30, r1: -80, r2: -190 },
+  { src: '/landing/shapes/bottle.png', w: 430, h: 722, size: 0.1, delay: 0.65, sx: 0.0, sy: -0.35, mx: 0.0, my: -0.38, r0: -15, r1: 40, r2: 150 },
 ]
 
 const LEAVES = [
@@ -35,12 +37,7 @@ const TREES = [
 ]
 
 function Leaf() {
-  return (
-    <svg viewBox="0 0 24 32" width="100%" aria-hidden>
-      <path d="M12 31C4 24 2 12 12 1c10 11 8 23 0 30z" fill="#6fb83a" stroke="#3f8a24" strokeWidth="1.2" />
-      <path d="M12 6v22" stroke="#3f8a24" strokeWidth="1" strokeLinecap="round" />
-    </svg>
-  )
+  return <Image src="/landing/shapes/leaf.png" alt="" aria-hidden width={398} height={160} style={{ width: '100%', height: 'auto' }} />
 }
 
 export default function MascotBin({ size = 150, label = 'น้องรักษ์อยู่ในถังขยะ' }: { size?: number; label?: string }) {
@@ -62,15 +59,16 @@ export default function MascotBin({ size = 150, label = 'น้องรัก�
       {/* eslint-disable @next/next/no-img-element */}
       <img src="/landing/mascot.webp" alt="" aria-hidden className={`${styles.layer} ${styles.mascot}`} />
 
-      {TRASH.map((t) => (
+      {TRASH.map((t, i) => (
         <img
-          key={t.src}
+          key={i}
           src={t.src}
           alt=""
           aria-hidden
           className={`${styles.layer} ${styles.trash}`}
           style={
             {
+              width: k(t.size),
               '--delay': `${t.delay}s`,
               '--sx': k(t.sx),
               '--sy': k(t.sy),

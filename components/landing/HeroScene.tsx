@@ -18,11 +18,14 @@ const TREES = [
   { src: '/landing/tree-2.png', w: 132, h: 175, x: 91, size: 8, dur: 3.5, delay: -1.2 },
 ]
 
+/** ขยะบนพื้น: ขวดกับกระป๋องทรงเรียบ (สลับกัน) — ขนาดต่างกันที่ .bottle / .can ใน CSS */
+const BOTTLE = { src: '/landing/shapes/bottle.png', w: 430, h: 722, kind: styles.bottle }
+const CAN = { src: '/landing/shapes/can.png', w: 489, h: 555, kind: styles.can }
 const TRASH = [
-  { cls: styles.trash1, src: '/landing/scene/beer.png', w: 200, h: 252 },
-  { cls: styles.trash2, src: '/landing/scene/tea.png', w: 186, h: 271 },
-  { cls: styles.trash3, src: '/landing/scene/cola.png', w: 197, h: 255 },
-  { cls: styles.trash4, src: '/landing/scene/newspaper.png', w: 698, h: 788 },
+  { cls: styles.trash1, ...BOTTLE },
+  { cls: styles.trash2, ...CAN },
+  { cls: styles.trash3, ...BOTTLE },
+  { cls: styles.trash4, ...CAN },
 ]
 
 /** ค่าเริ่มต้นคงที่ (กัน hydration ไม่ตรง) แล้วสุ่มค่าใหม่ทุกครั้งที่ก้อนวนครบรอบ */
@@ -45,8 +48,8 @@ export default function HeroScene() {
         </div>
       ))}
 
-      {TRASH.map((t) => (
-        <div key={t.src} className={`${styles.trash} ${t.cls}`}>
+      {TRASH.map((t, i) => (
+        <div key={i} className={`${styles.trash} ${t.kind} ${t.cls}`}>
           <Image src={t.src} alt="" width={t.w} height={t.h} />
         </div>
       ))}
@@ -57,10 +60,7 @@ export default function HeroScene() {
             <Image src="/landing/mascot.webp" alt="" width={838} height={897} priority />
           </div>
         </div>
-        <svg className={styles.leaf} viewBox="0 0 24 32" aria-hidden>
-          <path d="M12 31C4 24 2 12 12 1c10 11 8 23 0 30z" fill="#7ed348" stroke="#2f7d32" strokeWidth="1.6" />
-          <path d="M12 7v20" stroke="#2f7d32" strokeWidth="1.1" strokeLinecap="round" />
-        </svg>
+        <Image className={styles.leaf} src="/landing/shapes/leaf.png" alt="" width={398} height={160} />
       </div>
 
       <div className={styles.bubble} onAnimationIteration={() => setKg(Math.floor(120 + Math.random() * 870))}>
