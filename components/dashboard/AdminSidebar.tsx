@@ -111,11 +111,11 @@ export default function AdminSidebar({ activeHref = '/' }: { activeHref?: string
         <nav className="flex flex-col" style={{ paddingTop: 1 }}>
           {/* Dashboard (หน้าปัจจุบัน) */}
           <Link
-            href="/"
+            href="/admin/dashboard"
             style={{
               ...rowBase,
               gap: 12,
-              backgroundColor: activeHref === '/' ? ADMIN_COLORS.navyActive : 'transparent',
+              backgroundColor: activeHref === '/admin/dashboard' ? ADMIN_COLORS.navyActive : 'transparent',
               marginBottom: 2,
             }}
           >

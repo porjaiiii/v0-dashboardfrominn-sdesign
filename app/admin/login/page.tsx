@@ -1,20 +1,32 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import Image from 'next/image'
 import { fontStyle } from '@/lib/design-tokens'
 import { ADMIN_COLORS } from '@/lib/admin-tokens'
 
 /** รับเฉพาะ path ภายในเว็บ กัน open redirect */
+const DEFAULT_NEXT = '/admin/dashboard'
+
 function safeNext(): string {
-  const next = new URLSearchParams(window.location.search).get('next') || '/'
-  return next.startsWith('/') && !next.startsWith('//') ? next : '/'
+  const next = new URLSearchParams(window.location.search).get('next') || DEFAULT_NEXT
+  return next.startsWith('/') && !next.startsWith('//') ? next : DEFAULT_NEXT
 }
 
 export default function AdminLoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  // ล็อกอินค้างอยู่แล้ว → ข้ามหน้านี้ไปเลย
+  useEffect(() => {
+    fetch('/api/admin/session', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((s: { authenticated: boolean }) => {
+        if (s.authenticated) window.location.replace(safeNext())
+      })
+      .catch(() => {})
+  }, [])
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()

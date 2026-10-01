@@ -30,7 +30,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="th" className={`${ibmPlexSansThai.variable} bg-white`}>
+    <html lang="th" className={`${ibmPlexSansThai.variable} bg-white scroll-smooth`}>
       <body className="font-sans antialiased">
         <AuthProvider>
           <LiffProvider>
