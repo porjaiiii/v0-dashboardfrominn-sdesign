@@ -48,7 +48,7 @@ export default function AdminShell({
 
   const handleLogout = async () => {
     await fetch('/api/admin/logout', { method: 'POST' }).catch(() => {})
-    router.push('/admin/login')
+    router.push('/')
   }
 
   return (
