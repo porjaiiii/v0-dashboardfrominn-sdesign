@@ -92,9 +92,9 @@
 /* ───── ใบไม้ที่พุ่งออกจากปากถัง ───── */
 .leaf {
   z-index: 2;
-  left: calc(var(--w) * 0.5 - var(--w) * 0.06);
+  left: calc(var(--w) * 0.5 - var(--w) * 0.09);
   top: calc(var(--w) * 0.5);
-  width: calc(var(--w) * 0.12);
+  width: calc(var(--w) * 0.18);
   opacity: 0;
   transform-origin: 50% 100%;
 }

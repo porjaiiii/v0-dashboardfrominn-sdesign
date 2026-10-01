@@ -37,7 +37,7 @@
 /* ใบไม้ร่วง: เลื่อนลงตามความสูง (top) และแกว่งไปด้านข้าง (left) พร้อมหมุน */
 .leaf {
   position: absolute;
-  width: 2.4%;
+  width: 3.6%;
   pointer-events: none;
   opacity: 0;
   animation: fall var(--dur) linear var(--delay) infinite;
