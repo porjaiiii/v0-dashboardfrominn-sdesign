@@ -1,5 +1,5 @@
 /*
- * ฉากพื้นหลัง hero: น้องรักษ์กระโดดเข้าจากซ้าย เดินผ่านต้นไม้ เก็บขยะ 4 ชิ้น
+ * ฉากแถบคั่นใต้แบนเนอร์ (เดิมเป็นพื้นหลัง hero): น้องรักษ์กระโดดเข้าจากซ้าย เดินผ่านต้นไม้ เก็บขยะ 4 ชิ้น
  * (ใบไม้เด้งเหนือหัวทุกครั้งที่เก็บ) แล้วพ่นก้อน "Carbon emission" ออกมา ก่อนเดินออกขวา แล้ววนซ้ำ
  *
  * ทุกอย่างอิงไทม์ไลน์เดียว 18 วินาที (--T) — ค่า % ในแต่ละ keyframes คือเวลา/18
@@ -164,7 +164,7 @@
 
 @keyframes hop {
   0% { transform: translateY(0) scale(1, 1); }
-  3.6% { transform: translateY(-90px) scale(0.95, 1.08); }
+  3.6% { transform: translateY(calc(-1 * clamp(40px, 9cqw, 90px))) scale(0.95, 1.08); }
   7.8% { transform: translateY(0) scale(1.18, 0.8); }
   9% { transform: translateY(0) scale(1, 1); }
   20% { transform: scale(1, 1); }
@@ -263,7 +263,8 @@
 /* ก้อน Carbon emission ที่น้องรักษ์พ่นออกมาตอนเก็บครบ ลอยขึ้นด้านบนแล้วจางหาย */
 .bubble {
   position: absolute;
-  left: calc(78% - 5.5cqw);
+  /* อยู่เหนือหัวน้องรักษ์ แต่ไม่ให้ล้นขอบขวาของฉากบนจอแคบ */
+  left: min(calc(78% - 5.5cqw), calc(100cqw - clamp(84px, 11cqw, 128px) - 4cqw));
   bottom: calc(var(--mw) * 1.05 + clamp(14px, 3.4cqw, 34px));
   z-index: 4;
   min-width: clamp(84px, 11cqw, 128px);
@@ -294,8 +295,8 @@
 @keyframes puff {
   0%, 72% { opacity: 0; transform: translate(0, 0) scale(0.2); }
   74.5% { opacity: 1; transform: translate(0.5cqw, -10px) scale(1.05); }
-  91% { opacity: 0; transform: translate(3cqw, -90px) scale(1.2); }
-  100% { opacity: 0; transform: translate(3cqw, -90px) scale(1.2); }
+  91% { opacity: 0; transform: translate(3cqw, calc(-1 * clamp(36px, 7cqw, 80px))) scale(1.2); }
+  100% { opacity: 0; transform: translate(3cqw, calc(-1 * clamp(36px, 7cqw, 80px))) scale(1.2); }
 }
 
 /* ลดการเคลื่อนไหว: แสดงภาพนิ่ง (น้องรักษ์ยืนกลางฉาก ขยะอยู่ครบ ไม่มีก้อนคาร์บอน/ใบไม้) */
