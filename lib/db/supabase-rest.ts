@@ -86,3 +86,19 @@ export async function sbUpdate<T>(
   if (!res.ok) throw new Error(`Supabase update ${table}: ${res.status} ${await res.text()}`)
   return (await res.json()) as T[]
 }
+
+/**
+ * อ่านทุกแถวของตาราง (วนทีละ 1,000 แถว สูงสุด 100,000 แถว)
+ * จำเป็นเพราะ Supabase จำกัดจำนวนแถวต่อคำขอ (ค่าเริ่มต้น 1,000) ถึงแม้จะขอ limit มากกว่านั้น
+ * ต้องส่ง order ที่คงที่ใน filters (เช่น order=id.asc) เพื่อไม่ให้แถวซ้ำ/ตกหล่นระหว่างหน้า
+ */
+export async function sbSelectAll<T>(table: string, opts: Omit<SelectOptions, 'limit' | 'offset'> = {}): Promise<T[]> {
+  const PAGE = 1000
+  const out: T[] = []
+  for (let page = 0; page < 100; page++) {
+    const { rows } = await sbSelect<T>(table, { ...opts, limit: PAGE, offset: page * PAGE })
+    out.push(...rows)
+    if (rows.length < PAGE) break
+  }
+  return out
+}

@@ -1,7 +1,14 @@
 'use client'
 
 import AdminShell from '@/components/dashboard/AdminShell'
-import AdminStatCards from '@/components/dashboard/AdminStatCards'
+import {
+  Co2ChartPanel,
+  MonthlySummary,
+  RewardsPanel,
+  TotalsRow,
+  UsersChartPanel,
+  WasteChartPanel,
+} from '@/components/dashboard/DashboardPanels'
 import { fontStyle } from '@/lib/design-tokens'
 import { ADMIN_COLORS } from '@/lib/admin-tokens'
 
@@ -20,7 +27,19 @@ export default function AdminDashboardPage() {
       >
         Dashboard
       </h1>
-      <AdminStatCards />
+
+      <div className="flex flex-col gap-4">
+        <TotalsRow />
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <UsersChartPanel />
+          <WasteChartPanel />
+          <Co2ChartPanel />
+          <RewardsPanel />
+        </div>
+
+        <MonthlySummary />
+      </div>
     </AdminShell>
   )
 }

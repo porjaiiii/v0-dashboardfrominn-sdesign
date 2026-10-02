@@ -267,3 +267,45 @@ export interface RewardsOverview {
   topRedeemed: { name: string; count: number }[]
   pointsSpent: number
 }
+
+/* ───────────── หน้า Dashboard แอดมิน ───────────── */
+
+export interface DashboardMonth {
+  /** 1–12 */
+  month: number
+  /** ผู้ใช้สะสมถึงสิ้นเดือน (null = เดือนในอนาคต) */
+  users: number | null
+  /** ผู้ใช้ใหม่ในเดือนนั้น */
+  newUsers: number | null
+  /** ขยะที่รวบรวมได้ในเดือนนั้น (kg) */
+  weightKg: number | null
+  /** CO₂ ที่ลดได้สะสมถึงสิ้นเดือน (kg) */
+  co2CumKg: number | null
+}
+
+export interface DashboardChange {
+  newUsers: number | null
+  weightKg: number | null
+  co2Kg: number | null
+  pointsSpent: number | null
+}
+
+export interface DashboardData {
+  year: number
+  years: number[]
+  /** ยอดรวมตั้งแต่เริ่มระบบ */
+  totals: { users: number; weightKg: number; co2Kg: number; pointsSpent: number }
+  /** ข้อมูลรายเดือนของปีที่เลือก */
+  months: DashboardMonth[]
+  /** เดือนปัจจุบัน และ % เปลี่ยนแปลงเทียบเดือนก่อน (null = เดือนก่อนไม่มีข้อมูลให้เทียบ) */
+  current: {
+    label: string
+    newUsers: number
+    weightKg: number
+    co2Kg: number
+    pointsSpent: number
+    change: DashboardChange
+  }
+  /** การ์ดคะแนนของปีที่เลือก */
+  rewards: { pointsEarned: number; redeemedCount: number; top: { name: string; count: number }[] }
+}

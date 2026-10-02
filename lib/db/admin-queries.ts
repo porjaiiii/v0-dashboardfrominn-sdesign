@@ -8,7 +8,7 @@
 
 import { LOW_STOCK_THRESHOLD, RESTOCK_TARGET } from './constants'
 import * as mock from './mock'
-import { isSupabaseConfigured, quoteFilterValue, sbSelect, sbUpdate } from './supabase-rest'
+import { isSupabaseConfigured, quoteFilterValue, sbSelect, sbSelectAll, sbUpdate } from './supabase-rest'
 import type {
   Coupon,
   DashboardSummary,
@@ -206,16 +206,16 @@ export async function getSummary(): Promise<DashboardSummary> {
   const [{ total: users }, accounts] = await Promise.all([
     sbSelect<{ line_user_id: string }>('users', { select: 'line_user_id', limit: 1 }),
     // TODO: ถ้าข้อมูลเยอะ ให้สร้าง SQL view/RPC สรุปผลฝั่งฐานข้อมูลแทนการรวมตรงนี้
-    sbSelect<Pick<PointsAccount, 'lifetime_earned' | 'total_weight_kg' | 'total_co2_kg'>>('points_accounts', {
+    sbSelectAll<Pick<PointsAccount, 'lifetime_earned' | 'total_weight_kg' | 'total_co2_kg'>>('points_accounts', {
       select: 'lifetime_earned,total_weight_kg,total_co2_kg',
-      limit: 100000,
+      filters: { order: 'line_user_id.asc' },
     }),
   ])
   return {
     users,
-    totalWeightKg: accounts.rows.reduce((s, a) => s + Number(a.total_weight_kg), 0),
-    totalCo2Kg: accounts.rows.reduce((s, a) => s + Number(a.total_co2_kg), 0),
-    pointsIssued: accounts.rows.reduce((s, a) => s + Number(a.lifetime_earned), 0),
+    totalWeightKg: accounts.reduce((s, a) => s + Number(a.total_weight_kg), 0),
+    totalCo2Kg: accounts.reduce((s, a) => s + Number(a.total_co2_kg), 0),
+    pointsIssued: accounts.reduce((s, a) => s + Number(a.lifetime_earned), 0),
   }
 }
 
@@ -238,14 +238,13 @@ export async function getRewardStock(p: ListParams): Promise<Page<RewardStockRow
   } else {
     const [r, c] = await Promise.all([
       sbSelect<Reward>('rewards', { filters: { order: 'sort_order.asc,id.asc' }, limit: 1000 }),
-      sbSelect<Pick<Coupon, 'reward_id' | 'status'>>('coupons', {
+      sbSelectAll<Pick<Coupon, 'reward_id' | 'status'>>('coupons', {
         select: 'reward_id,status',
-        filters: { status: 'eq.active' },
-        limit: 100000,
+        filters: { status: 'eq.active', order: 'coupon_id.asc' },
       }),
     ])
     rewards = r.rows
-    coupons = c.rows
+    coupons = c
   }
   const reserved = activeCouponCount(coupons)
   let rows: RewardStockRow[] = rewards.map((r) => ({
@@ -289,15 +288,14 @@ export async function getRewardsOverview(period: string): Promise<RewardsOvervie
   } else {
     const [r, c] = await Promise.all([
       sbSelect<Reward>('rewards', { limit: 1000 }),
-      sbSelect<Pick<Coupon, 'reward_name' | 'points_used' | 'status' | 'redeemed_at'>>('coupons', {
+      sbSelectAll<Pick<Coupon, 'reward_name' | 'points_used' | 'status' | 'redeemed_at'>>('coupons', {
         select: 'reward_name,points_used,status,redeemed_at',
         // and=(...) ใช้กรองช่วงเวลาสองด้านบนคอลัมน์เดียวกัน
-        filters: { and: `(redeemed_at.gte.${from},redeemed_at.lt.${to})` },
-        limit: 100000,
+        filters: { and: `(redeemed_at.gte.${from},redeemed_at.lt.${to})`, order: 'coupon_id.asc' },
       }),
     ])
     rewards = r.rows
-    coupons = c.rows
+    coupons = c
   }
 
   const counted = coupons.filter((c) => c.status !== 'cancelled')
