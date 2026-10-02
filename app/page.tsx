@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import BangKachaoMap from '@/components/dashboard/BangKachaoMap'
 import HeroCarousel from '@/components/landing/HeroCarousel'
+import HeroScene from '@/components/landing/HeroScene'
 import LandingStats from '@/components/landing/LandingStats'
 import SiteNav from '@/components/landing/SiteNav'
 import { AboutSection, CtaBanner, LineSection, SiteFooter } from '@/components/landing/sections'
@@ -45,6 +46,15 @@ export default function LandingPage() {
           </Link>
         </div>
       </header>
+
+      {/* ───────── แถบน้องรักษ์เดินเก็บขยะ คั่นระหว่างแบนเนอร์กับส่วนแนะนำ ───────── */}
+      <section
+        aria-hidden
+        className="relative w-full overflow-hidden"
+        style={{ height: 'clamp(170px, 24vw, 280px)', background: 'linear-gradient(#ffffff 0%, #eefbd9 60%, #e0f8c6 100%)' }}
+      >
+        <HeroScene />
+      </section>
 
       <AboutSection />
 
