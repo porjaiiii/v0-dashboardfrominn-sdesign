@@ -1,12 +1,10 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import Sidebar from '@/components/dashboard/Sidebar'
 import MenuButton from '@/components/dashboard/MenuButton'
-import { useAuth } from '@/lib/auth-context'
-import { useLiff } from '@/lib/liff-context'
+import UserAccountMenu from '@/components/dashboard/UserAccountMenu'
+import { useSession } from '@/lib/use-session'
 import { WASTE_CATEGORIES, type MainCategory } from '@/lib/waste-types-data'
 import SelectPill from '@/components/ui/SelectPill'
 import {
@@ -43,23 +41,14 @@ interface WasteRecord {
 }
 
 export default function WasteTypesPage() {
-  const router = useRouter()
-  const { emailUser } = useAuth()
-  const { isLiffReady, isLoggedIn: liffLoggedIn, profile: liffProfile, liffLogout } = useLiff()
+  const { account, logout } = useSession('signed-in')
 
   const [tambon, setTambon] = useState('ทุกตำบล')
   const [activeCat, setActiveCat] = useState<MainCategory>('plastic')
   const [year, setYear] = useState<number>(2569) // 🟢 State สำหรับเลือกปี
-  const [profileOpen, setProfileOpen] = useState(false)
 
   const [rawRecords, setRawRecords] = useState<WasteRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
-
-  const isAuthenticated = !!emailUser || liffLoggedIn
-
-  useEffect(() => {
-    if (isLiffReady && !isAuthenticated) router.push('/login')
-  }, [isLiffReady, isAuthenticated, router])
 
   // ดึงข้อมูลรายการขยะทั้งหมดจาก API ก้อนเดียว
   const fetchWasteRecords = useCallback(async () => {
@@ -78,22 +67,8 @@ export default function WasteTypesPage() {
   }, [])
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchWasteRecords()
-    }
-  }, [isAuthenticated, fetchWasteRecords])
-
-  // ดึงตำบลของผู้ใช้จาก rawRecords
-  useEffect(() => {
-    if (liffProfile?.userId && rawRecords.length > 0) {
-      const userRecord = rawRecords.find(
-        (r) => (r.lineUserId || r.user_id) === liffProfile.userId
-      )
-      if (userRecord?.subdistrict && TAMBON_LIST_DATA.includes(userRecord.subdistrict)) {
-        setTambon(userRecord.subdistrict)
-      }
-    }
-  }, [liffProfile, rawRecords])
+    if (account) fetchWasteRecords()
+  }, [account, fetchWasteRecords])
 
   const activeCatInfo = useMemo(() => {
     return WASTE_CATEGORIES.find(c => c.id === activeCat)!
@@ -188,15 +163,7 @@ export default function WasteTypesPage() {
 
   const grandTotal = Object.values(totals).reduce((a, b) => a + b, 0)
 
-  if (!isAuthenticated) return null
-
-  const displayName = liffLoggedIn ? liffProfile?.displayName ?? '' : emailUser?.name ?? ''
-  const avatarUrl = liffLoggedIn ? liffProfile?.pictureUrl : null
-
-  const handleLogout = () => {
-    if (liffLoggedIn) liffLogout()
-    router.push('/login')
-  }
+  if (!account) return null
 
   return (
     <div className="flex" style={{ minHeight: '100vh', backgroundColor: COLORS.white, ...fontStyle }}>
@@ -215,53 +182,7 @@ export default function WasteTypesPage() {
           }}
         >
           <MenuButton />
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setProfileOpen(!profileOpen)}
-              className="flex items-center"
-              style={{
-                gap: 10,
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '6px 12px',
-                borderRadius: 10,
-              }}
-            >
-              {avatarUrl ? (
-                <Image src={avatarUrl} alt="profile" width={36} height={36} style={{ borderRadius: '50%', objectFit: 'cover' }} />
-              ) : (
-            
-<div style={{
-  width: 36, height: 36, borderRadius: '50%', backgroundColor: '#154212',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  color: '#fff', fontSize: 15, fontWeight: 600, ...fontStyle, flexShrink: 0,
-}}>
-                  {displayName ? displayName.charAt(0) : 'U'}
-                </div>
-              )}
-              <span style={{ color: '#154212', fontSize: 16, fontWeight: 600, ...fontStyle, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {displayName}
-              </span>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#154212" strokeWidth="2.5"><path d="M6 9l6 6 6-6" /></svg>
-            </button>
-            {profileOpen && (
-              <div style={{
-                position: 'absolute', top: '110%', right: 0, backgroundColor: '#fff',
-                border: '2px solid #154212', borderRadius: 10,
-                boxShadow: '0 4px 20px rgba(0,0,0,0.08)', minWidth: 180, zIndex: 50, overflow: 'hidden',
-              }}>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0' }}>
-                  <p style={{ color: '#154212', fontSize: 15, fontWeight: 600, margin: 0, ...fontStyle, textAlign: 'center' }}>{displayName}</p>
-                  {emailUser && <p style={{ color: '#666', fontSize: 13, margin: '2px 0 0', ...fontStyle, textAlign: 'center' }}>{emailUser.email}</p>}
-                </div>
-                <button onClick={handleLogout} style={{
-                  display: 'block', width: '100%', padding: '10px 16px', textAlign: 'left',
-                  background: 'none', border: 'none', cursor: 'pointer', color: COLORS.paper, fontSize: 15, fontWeight: 600, ...fontStyle,
-                }}>ออกจากระบบ</button>
-              </div>
-            )}
-          </div>
+          <UserAccountMenu account={account} onLogout={logout} />
         </div>
 
         {/* Content */}

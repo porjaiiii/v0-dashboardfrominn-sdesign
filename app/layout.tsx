@@ -1,8 +1,6 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata } from 'next'
 import { IBM_Plex_Sans_Thai } from 'next/font/google'
-import { AuthProvider } from '@/lib/auth-context'
-import { LiffProvider } from '@/lib/liff-context'
 import { SidebarProvider } from '@/lib/sidebar-context'
 import './globals.css'
 
@@ -32,11 +30,7 @@ export default function RootLayout({
   return (
     <html lang="th" className={`${ibmPlexSansThai.variable} bg-white scroll-smooth`}>
       <body className="font-sans antialiased">
-        <AuthProvider>
-          <LiffProvider>
-            <SidebarProvider>{children}</SidebarProvider>
-          </LiffProvider>
-        </AuthProvider>
+        <SidebarProvider>{children}</SidebarProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

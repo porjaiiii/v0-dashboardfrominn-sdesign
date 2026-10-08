@@ -2,13 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import type { Page } from '@/lib/db/types'
+import { handleAuthFailure } from '@/lib/auth-client'
 
 type Params = Record<string, string | number | undefined>
-
-/** เซสชันหมดอายุ/ยังไม่ล็อกอิน → กลับไปหน้าเข้าสู่ระบบแล้วกลับมาหน้าเดิมหลังล็อกอิน */
-function redirectToLogin() {
-  window.location.href = `/admin/login?next=${encodeURIComponent(window.location.pathname)}`
-}
 
 /**
  * โหลดรายการจาก /api/admin/* (แบ่งหน้าฝั่งเซิร์ฟเวอร์)
@@ -33,7 +29,7 @@ export function useAdminList<T>(endpoint: string, params: Params) {
       })
       try {
         const res = await fetch(`${endpoint}?${qs}`)
-        if (res.status === 401) return redirectToLogin()
+        if (handleAuthFailure(res.status)) return
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
         if (!cancelled) {
@@ -65,7 +61,7 @@ export function useAdminFetch<T>(endpoint: string) {
     let cancelled = false
     fetch(endpoint)
       .then(async (res) => {
-        if (res.status === 401) return redirectToLogin()
+        if (handleAuthFailure(res.status)) return
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
         if (!cancelled) setData(json as T)
@@ -108,10 +104,7 @@ export async function fetchAllRows<T>(endpoint: string, params: Params): Promise
       if (v !== undefined && v !== '') qs.set(k, String(v))
     })
     const res = await fetch(`${endpoint}?${qs}`)
-    if (res.status === 401) {
-      redirectToLogin()
-      throw new Error('กรุณาเข้าสู่ระบบใหม่')
-    }
+    if (handleAuthFailure(res.status)) throw new Error('กรุณาเข้าสู่ระบบใหม่')
     const json = (await res.json()) as Page<T> & { error?: string }
     if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
     out.push(...json.rows)

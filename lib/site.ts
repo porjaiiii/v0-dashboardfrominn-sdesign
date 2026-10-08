@@ -16,7 +16,7 @@ export const LINE_OA_URL = ''
  */
 export const HOWTO_VIDEO_EMBED_URL = 'https://www.youtube-nocookie.com/embed/hTm7o4FXSgo'
 
-export const LOGIN_HREF = '/admin/login?next=/admin/dashboard'
+export const LOGIN_HREF = '/login'
 
 export type NavKey = 'home' | 'about' | 'sorting' | 'management' | 'contact'
 

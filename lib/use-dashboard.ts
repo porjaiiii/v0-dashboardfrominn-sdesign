@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { DashboardData } from '@/lib/db/types'
+import { handleAuthFailure } from '@/lib/auth-client'
 
 /**
  * โหลดข้อมูล /api/admin/dashboard ของปีที่ระบุ (ไม่ระบุ = ปีปัจจุบัน)
@@ -15,10 +16,7 @@ function load(year: number | undefined): Promise<DashboardData> {
   if (hit) return hit
   const p = fetch(`/api/admin/dashboard${year ? `?year=${year}` : ''}`, { cache: 'no-store' })
     .then(async (res) => {
-      if (res.status === 401) {
-        window.location.href = `/admin/login?next=${encodeURIComponent(window.location.pathname)}`
-        throw new Error('กรุณาเข้าสู่ระบบใหม่')
-      }
+      if (handleAuthFailure(res.status)) throw new Error('กรุณาเข้าสู่ระบบใหม่')
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
       return json as DashboardData

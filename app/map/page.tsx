@@ -1,8 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import Image from 'next/image'
+import { useState } from 'react'
 import Sidebar from '@/components/dashboard/Sidebar'
 import MenuButton from '@/components/dashboard/MenuButton'
 import BangKachaoMap from '@/components/dashboard/BangKachaoMap'
@@ -11,8 +9,8 @@ import MonthlyWasteChart from '@/components/dashboard/MonthlyWasteChart'
 import MapWithPins from '@/components/dashboard/MapWithPins'
 import DonationCard from '@/components/dashboard/DonationCard'
 import TopContributors from '@/components/dashboard/TopContributors'
-import { useAuth } from '@/lib/auth-context'
-import { useLiff } from '@/lib/liff-context'
+import UserAccountMenu from '@/components/dashboard/UserAccountMenu'
+import { useSession } from '@/lib/use-session'
 import { TAMBON_LIST } from '@/lib/map-data'
 
 const fontStyle = {
@@ -20,33 +18,10 @@ const fontStyle = {
 }
 
 export default function MapPage() {
-  const router = useRouter()
-  const { emailUser, emailLogout } = useAuth()
-  const { isLiffReady, isLoggedIn: liffLoggedIn, profile: liffProfile, liffLogout } = useLiff()
-
+  const { account, logout } = useSession('signed-in')
   const [selectedTambon, setSelectedTambon] = useState('บางกะเจ้า')
-  const [profileOpen, setProfileOpen] = useState(false)
 
-  const isAuthenticated = !!emailUser || liffLoggedIn
-
-  useEffect(() => {
-    if (isLiffReady && !isAuthenticated) {
-      router.push('/login')
-    }
-  }, [isLiffReady, isAuthenticated, router])
-
-  if (!isAuthenticated) return null
-
-  const displayName = liffLoggedIn
-    ? liffProfile?.displayName ?? ''
-    : emailUser?.name ?? ''
-  const avatarUrl = liffLoggedIn ? liffProfile?.pictureUrl : null
-
-  const handleLogout = () => {
-    if (liffLoggedIn) liffLogout()
-    else emailLogout()
-    router.push('/login')
-  }
+  if (!account) return null
 
   return (
     <div className="flex" style={{ minHeight: '100vh', backgroundColor: '#ffffff' }}>
@@ -67,135 +42,7 @@ export default function MapPage() {
         >
           <MenuButton />
 
-          {/* User profile top-right */}
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setProfileOpen(!profileOpen)}
-              className="flex items-center"
-              style={{
-                gap: 10,
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '6px 10px',
-                borderRadius: 8,
-              }}
-            >
-              {avatarUrl ? (
-                <Image
-                  src={avatarUrl}
-                  alt="profile"
-                  width={36}
-                  height={36}
-                  style={{ borderRadius: '50%', objectFit: 'cover' }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: '50%',
-                    backgroundColor: '#154212',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  {displayName ? (
-                    <span style={{ color: '#ffffff', fontSize: 15, fontWeight: 700, ...fontStyle }}>
-                      {displayName.charAt(0)}
-                    </span>
-                  ) : (
-                    /* Default user SVG icon */
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="8" r="4" />
-                      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-                    </svg>
-                  )}
-                </div>
-              )}
-              <span
-                style={{
-                  color: '#154212',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  ...fontStyle,
-                  maxWidth: 140,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {displayName}
-              </span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#154212" strokeWidth="2.5">
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </button>
-
-            {profileOpen && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '110%',
-                  right: 0,
-                  backgroundColor: '#ffffff',
-                  border: '1.5px solid #e5e7eb',
-                  borderRadius: 10,
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
-                  minWidth: 180,
-                  zIndex: 50,
-                  overflow: 'hidden',
-                }}
-              >
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
-                  {avatarUrl && (
-                    <div className="flex justify-center" style={{ marginBottom: 8 }}>
-                      <Image
-                        src={avatarUrl}
-                        alt="profile"
-                        width={52}
-                        height={52}
-                        style={{ borderRadius: '50%', objectFit: 'cover' }}
-                      />
-                    </div>
-                  )}
-                  <p style={{ color: '#154212', fontSize: 14, fontWeight: 700, margin: 0, ...fontStyle, textAlign: 'center' }}>
-                    {displayName}
-                  </p>
-                  {liffLoggedIn && liffProfile?.statusMessage && (
-                    <p style={{ color: '#9ca3af', fontSize: 12, margin: '2px 0 0', ...fontStyle, textAlign: 'center' }}>
-                      {liffProfile.statusMessage}
-                    </p>
-                  )}
-                  {emailUser && (
-                    <p style={{ color: '#9ca3af', fontSize: 12, margin: '2px 0 0', ...fontStyle, textAlign: 'center' }}>
-                      {emailUser.email}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={handleLogout}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '10px 16px',
-                    textAlign: 'left',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: '#c06060',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    ...fontStyle,
-                  }}
-                >
-                  ออกจากระบบ
-                </button>
-              </div>
-            )}
-          </div>
+          <UserAccountMenu account={account} onLogout={logout} />
         </div>
 
         {/* ── Main scrollable content ── */}
