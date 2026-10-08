@@ -12,13 +12,25 @@ values
   ('00000000-0000-0000-0000-000000000000', 'aaaaaaaa-0000-4000-8000-000000000002', 'authenticated', 'authenticated',
    'check-second@example.invalid', '{"source":"dashboard"}', '{"full_name":"Check Second"}', now(), now()),
   ('00000000-0000-0000-0000-000000000000', 'aaaaaaaa-0000-4000-8000-000000000003', 'authenticated', 'authenticated',
-   'check-other-app@example.invalid', '{}', '{}', now(), now());
+   'check-other-app@example.invalid', '{}', '{}', now(), now()),
+  ('00000000-0000-0000-0000-000000000000', 'aaaaaaaa-0000-4000-8000-000000000004', 'authenticated', 'authenticated',
+   'check-gotrue-path@example.invalid', '{"provider":"email","providers":["email"]}', '{"full_name":"Check GoTrue Path"}', now(), now());
+
+-- เลียนแบบ Supabase Auth admin API: INSERT ก่อน แล้วค่อย UPDATE app_metadata ใส่ source
+update auth.users
+   set raw_app_meta_data = raw_app_meta_data || '{"source":"dashboard"}'
+ where id = 'aaaaaaaa-0000-4000-8000-000000000004';
+-- การอัปเดต metadata ครั้งต่อไปต้องไม่ล้มและไม่สร้างซ้ำ
+update auth.users
+   set raw_app_meta_data = raw_app_meta_data || '{"providers":["email","other"]}'
+ where id = 'aaaaaaaa-0000-4000-8000-000000000004';
 
 do $$
 declare
   r1 constant uuid := 'aaaaaaaa-0000-4000-8000-000000000001';
   r2 constant uuid := 'aaaaaaaa-0000-4000-8000-000000000002';
   r3 constant uuid := 'aaaaaaaa-0000-4000-8000-000000000003';
+  r4 constant uuid := 'aaaaaaaa-0000-4000-8000-000000000004';
   v dashboard.accounts%rowtype;
 begin
   -- 1. trigger สร้างแถวเฉพาะผู้ใช้ source = dashboard ด้วยค่าเริ่มต้น
@@ -28,6 +40,12 @@ begin
   end if;
   if exists (select 1 from dashboard.accounts where id = r3) then
     raise exception 'FAIL 1: trigger created a row for a non-dashboard user';
+  end if;
+
+  -- 1b. เส้นทางจริงของ Supabase Auth: source ถูกใส่ด้วย UPDATE หลัง INSERT
+  select * into v from dashboard.accounts where id = r4;
+  if not found or v.role <> 'user' or v.status <> 'unverified' or v.full_name <> 'Check GoTrue Path' then
+    raise exception 'FAIL 1b: no correct row when source is set by UPDATE after INSERT: %', row_to_json(v);
   end if;
 
   -- 2. root มีได้คนเดียว

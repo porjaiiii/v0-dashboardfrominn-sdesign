@@ -47,14 +47,15 @@ begin
 end;
 $$;
 
-drop trigger if exists accounts_touch on dashboard.accounts;
-create trigger accounts_touch
+create or replace trigger accounts_touch
   before update on dashboard.accounts
   for each row execute function dashboard.tg_touch_updated_at();
 
 -- ----------------------------------------------------------------------------
 -- สร้างแถว dashboard.accounts ใน transaction เดียวกับที่ Supabase Auth สร้างผู้ใช้
 -- (insert ล้ม = สร้างผู้ใช้ล้มด้วย) เฉพาะผู้ใช้ที่เซิร์ฟเวอร์แดชบอร์ดติดป้าย source = dashboard
+-- Supabase Auth (admin API) INSERT ผู้ใช้ก่อน แล้วค่อย UPDATE app_metadata ใน transaction เดียวกัน
+-- จึงดักทั้ง insert และ update ของ raw_app_meta_data — ทำงานครั้งแรกที่ source กลายเป็น dashboard
 -- บทบาท/สถานะใช้ค่าเริ่มต้นเสมอ (user/unverified) — ไม่อ่านจาก metadata จึงสร้างแอดมินผ่านทางนี้ไม่ได้
 -- ----------------------------------------------------------------------------
 create or replace function dashboard.handle_new_auth_user()
@@ -64,21 +65,30 @@ security definer
 set search_path = ''
 as $$
 begin
-  if new.raw_app_meta_data ->> 'source' = 'dashboard' then
-    insert into dashboard.accounts (id, email, full_name)
-    values (
-      new.id,
-      lower(new.email),
-      coalesce(nullif(trim(new.raw_user_meta_data ->> 'full_name'), ''), split_part(new.email, '@', 1))
-    );
+  if new.raw_app_meta_data ->> 'source' is distinct from 'dashboard' then
+    return new;
   end if;
+  -- เป็นบัญชีแดชบอร์ดอยู่แล้ว (เช่น Supabase อัปเดต providers ภายหลัง) — ไม่ต้องสร้างซ้ำ
+  if tg_op = 'UPDATE' then
+    if old.raw_app_meta_data ->> 'source' = 'dashboard' then
+      return new;
+    end if;
+  end if;
+
+  insert into dashboard.accounts (id, email, full_name)
+  values (
+    new.id,
+    lower(new.email),
+    coalesce(nullif(trim(new.raw_user_meta_data ->> 'full_name'), ''), split_part(new.email, '@', 1))
+  )
+  on conflict (id) do nothing;
   return new;
 end;
 $$;
 
-drop trigger if exists dashboard_on_auth_user_created on auth.users;
-create trigger dashboard_on_auth_user_created
-  after insert on auth.users
+-- create or replace (ไม่ใช่ drop + create) เพราะ auth.users เป็นของ supabase_auth_admin — drop ต้องเป็นเจ้าของตาราง
+create or replace trigger dashboard_on_auth_user_created
+  after insert or update of raw_app_meta_data on auth.users
   for each row execute function dashboard.handle_new_auth_user();
 
 -- ----------------------------------------------------------------------------
