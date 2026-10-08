@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { ADDRESS_LINES, COMPANY, HOWTO_VIDEO_EMBED_URL, LINE_OA_URL, PHONE } from '@/lib/site'
 import type { ReactNode } from 'react'
 import { DEEP, FOREST, LIME, Leaf, MID, RecycleBadge, photo } from './shared'
+import BangKachaoMap from '@/components/dashboard/BangKachaoMap'
 import MascotBin from './MascotBin'
 
 /** ส่วนที่ใช้ซ้ำหลายหน้า: น้องรักษ์คือใคร / LINE OA / วิดีโอ / แบนเนอร์ชวน / ท้ายหน้า */
@@ -52,36 +53,56 @@ function GlobeArt() {
   )
 }
 
-const ABOUT_STEPS: { title: string; text: string; art: ReactNode; artClass: string }[] = [
-  {
-    title: 'บันทึกข้อมูลขยะ',
-    text: 'ให้คนในพื้นที่บันทึกขยะผ่าน LINE',
-    art: <PhoneArt />,
-    artClass: 'h-[150px] md:h-[170px]',
-  },
+/** ขนาดทั้งหมดของส่วนนี้อิงความกว้างกล่อง (cqw) เพื่อให้สัดส่วนตรงกับแบบทุกขนาดจอ — min = ขนาดอ่านได้บนมือถือ */
+const cq = (min: number, vw: number, max: number) => `clamp(${min}px, ${vw}cqw, ${max}px)`
+
+function StepBadge() {
+  return (
+    <span
+      className="absolute left-[4.5%] top-[6%] flex items-center justify-center rounded-full"
+      style={{ width: cq(40, 3.7, 70), height: cq(40, 3.7, 70), backgroundColor: '#7cc93a' }}
+    >
+      <Image src="/landing/recycle-icon.png" alt="" aria-hidden width={48} height={48} style={{ width: '55%', height: 'auto' }} />
+    </span>
+  )
+}
+
+function GlobeWithLeaves() {
+  return (
+    <div className="relative h-full">
+      <GlobeArt />
+      <Image src="/landing/shapes/leaf.png" alt="" aria-hidden width={398} height={160} className="absolute -right-[22%] top-[2%] w-[34%] -rotate-[75deg]" />
+      <Image src="/landing/shapes/leaf.png" alt="" aria-hidden width={398} height={160} className="absolute -left-[26%] bottom-[10%] w-[34%] rotate-[25deg]" />
+      <Image src="/landing/shapes/leaf.png" alt="" aria-hidden width={398} height={160} className="absolute -right-[20%] bottom-[8%] w-[30%] -rotate-[20deg]" />
+    </div>
+  )
+}
+
+const ABOUT_STEPS: { title: string; text: string; art: ReactNode; artH: string }[] = [
+  { title: 'บันทึกข้อมูลขยะ', text: 'ให้คนในพื้นที่บันทึกขยะผ่าน LINE', art: <PhoneArt />, artH: cq(130, 10.7, 210) },
   {
     title: 'จัดการการรับขยะ',
     text: 'ข้อมูลจากการดำเนินงานถูกรวบรวมไว้ในระบบเดียว',
-    art: <Image src="/landing/bin.webp" alt="" aria-hidden width={110} height={98} className="h-auto w-[110px]" />,
-    artClass: 'h-[150px] md:h-[170px]',
+    art: <Image src="/landing/bin.webp" alt="" aria-hidden width={1895} height={1690} style={{ height: '100%', width: 'auto' }} />,
+    artH: cq(120, 10.5, 200),
   },
-  {
-    title: 'ติดตามข้อมูล',
-    text: 'ติดตามปริมาณขยะและข้อมูลการดำเนินงานผ่าน Dashboard',
-    art: <LaptopArt />,
-    artClass: 'h-[130px] md:h-[150px]',
-  },
-  {
-    title: 'ติดตามผลลัพธ์',
-    text: 'ติดตามปริมาณขยะที่รวบรวมและผลลัพธ์ด้านสิ่งแวดล้อม',
-    art: <GlobeArt />,
-    artClass: 'h-[130px] md:h-[150px]',
-  },
+  { title: 'ติดตามข้อมูล', text: 'ติดตามปริมาณขยะและข้อมูลการดำเนินงานผ่าน Dashboard', art: <LaptopArt />, artH: cq(110, 9.4, 180) },
+  { title: 'ติดตามผลลัพธ์', text: 'ติดตามปริมาณขยะที่รวบรวมและผลลัพธ์ด้านสิ่งแวดล้อม', art: <GlobeWithLeaves />, artH: cq(110, 10, 190) },
 ]
 
 function StepArrow() {
   return (
-    <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke={DEEP} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="mx-auto rotate-90 md:rotate-0">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={DEEP}
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className="mx-auto rotate-90 md:rotate-0"
+      style={{ width: cq(28, 2.4, 46), height: cq(28, 2.4, 46) }}
+    >
       <path d="M5 12h14M13 6l6 6-6 6" />
     </svg>
   )
@@ -89,37 +110,47 @@ function StepArrow() {
 
 export function AboutSection() {
   return (
-    <section id="about" className="relative overflow-hidden px-5 py-10 md:px-12 md:py-14" style={{ backgroundColor: LIME }}>
+    <section id="about" className="relative overflow-hidden" style={{ backgroundColor: LIME }}>
       <Leaf className="-right-10 -top-4 h-24 w-64 md:h-32 md:w-80" />
-      <Leaf className="right-[34%] top-[26%] hidden h-14 w-36 -rotate-12 md:block" />
-      <Leaf className="-right-8 top-[70%] hidden h-24 w-24 rotate-[100deg] md:block" />
+      <Leaf className="right-[46%] top-[34%] hidden h-14 w-36 -rotate-12 md:block" />
+      <Leaf className="-right-8 top-[66%] hidden h-24 w-24 rotate-[100deg] md:block" />
 
-      <div className="relative mx-auto max-w-6xl">
-        <div className="flex items-center gap-4 md:gap-14">
-          <div className="shrink-0 px-[34px] md:px-[60px]">
-            <MascotBin size={130} />
+      {/* กล่องนี้เป็น container: ขนาดฟอนต์/การ์ดด้านในใช้หน่วย cqw ตามความกว้างกล่อง */}
+      <div className="relative mx-auto w-full max-w-[1760px] px-[3%] py-8 md:py-[2.6cqw]" style={{ containerType: 'inline-size' }}>
+        <div className="relative md:min-h-[27cqw]">
+          <div className="flex items-center gap-4 md:gap-[3.2cqw]">
+            <div className="shrink-0" style={{ padding: `0 ${cq(30, 2, 40)}` }}>
+              <MascotBin size={cq(110, 12.5, 230)} />
+            </div>
+            <div className="md:max-w-[36cqw]">
+              <h2 className="font-bold" style={{ color: DEEP, fontSize: cq(28, 3, 58) }}>น้องรักษ์คือใคร?</h2>
+              <p className="mt-3 md:mt-[1.6cqw]" style={{ color: MID, fontSize: cq(14, 1.6, 30), lineHeight: 2.1 }}>
+                น้องรักษ์ คือแพลตฟอร์มดิจิทัลที่ช่วยให้ทีมจัดการขยะในพื้นที่บันทึก จัดเก็บ และติดตามข้อมูลขยะได้อย่างเป็นระบบ
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-3xl font-bold md:text-5xl" style={{ color: DEEP }}>น้องรักษ์คือใคร?</h2>
-            <p className="mt-3 max-w-2xl text-[14px] leading-7 md:mt-5 md:text-xl md:leading-9" style={{ color: MID }}>
-              น้องรักษ์ คือแพลตฟอร์มดิจิทัลที่ช่วยให้ทีมจัดการขยะในพื้นที่บันทึก จัดเก็บ และติดตามข้อมูลขยะได้อย่างเป็นระบบ
-            </p>
-          </div>
+
+          {/* ภาพอุปกรณ์ (แท็บเล็ต + โทรศัพท์) เป็นพื้นหลังด้านขวาของหัวข้อ */}
+          <Image
+            src="/landing/about-devices.png"
+            alt="ตัวอย่างหน้าจอ Dashboard และ LINE น้องรักษ์"
+            width={1181}
+            height={680}
+            className="mt-6 h-auto w-full md:pointer-events-none md:absolute md:right-0 md:top-1/2 md:mt-0 md:w-[45cqw] md:-translate-y-1/2"
+          />
         </div>
 
-        <ol className="mt-8 grid items-stretch gap-3 md:mt-10 md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] md:gap-2">
+        <ol className="mt-8 grid items-stretch gap-3 md:mt-[2.4cqw] md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] md:gap-[0.5cqw]">
           {ABOUT_STEPS.flatMap((st, i) => {
             const card = (
-              <li key={st.title} className="overflow-hidden rounded-3xl bg-white/80">
-                <div className="relative flex items-center justify-end bg-gradient-to-b from-white/30 to-white/60 px-4 pb-2 pt-4">
-                  <span className="absolute left-4 top-4">
-                    <RecycleBadge color="#7cc93a" />
-                  </span>
-                  <div className={`flex items-center justify-center ${st.artClass}`}>{st.art}</div>
+              <li key={st.title} className="overflow-hidden bg-white/80" style={{ borderRadius: cq(24, 2.1, 40) }}>
+                <div className="relative flex items-center justify-center bg-gradient-to-b from-white/30 to-white/60 md:pl-[14%]" style={{ height: cq(170, 14.1, 265) }}>
+                  <StepBadge />
+                  <div style={{ height: st.artH }}>{st.art}</div>
                 </div>
-                <div className="px-5 pb-6 pt-4">
-                  <h3 className="text-xl font-bold md:text-2xl" style={{ color: DEEP }}>{st.title}</h3>
-                  <p className="mt-2 text-[14px] leading-7 md:text-base" style={{ color: DEEP }}>{st.text}</p>
+                <div style={{ padding: `${cq(14, 1.6, 30)} ${cq(18, 1.7, 32)} ${cq(20, 2.2, 40)}` }}>
+                  <h3 className="font-bold" style={{ color: DEEP, fontSize: cq(20, 2.1, 40) }}>{st.title}</h3>
+                  <p className="mt-2" style={{ color: DEEP, fontSize: cq(14, 1.6, 30), lineHeight: 1.75 }}>{st.text}</p>
                 </div>
               </li>
             )
@@ -128,6 +159,50 @@ export function AboutSection() {
               : [card]
           })}
         </ol>
+      </div>
+    </section>
+  )
+}
+
+/* ───────── ชุมชนต้นแบบ คุ้งบางกะเจ้า (แบนเนอร์ใต้การ์ดขั้นตอน) ───────── */
+
+const TAMBON = ['บางกะเจ้า', 'บางยอ', 'บางกอบัว', 'บางน้ำผึ้ง', 'บางกระสอบ', 'ทรงคนอง']
+
+export function CommunityBanner() {
+  return (
+    <section id="community" className="px-[3%] pb-8 pt-1 md:pb-12" style={{ backgroundColor: LIME }}>
+      <div className="mx-auto max-w-[1760px]">
+        {/* จอกว้าง: ใช้ภาพแบนเนอร์ (ข้อความอยู่ในรูป) */}
+        <Image
+          src="/landing/community-banner.webp"
+          alt={`ชุมชนต้นแบบของน้องรักษ์ คุ้งบางกะเจ้า — น้องรักษ์เริ่มต้นจากการนำแนวคิดการจัดการขยะมาประยุกต์ใช้กับชุมชนคุ้งบางกะเจ้า เพื่อสร้างระบบที่เชื่อมโยงคนในชุมชน เจ้าหน้าที่ และการจัดการขยะเข้าด้วยกัน 6 ตำบลคุ้งบางกะเจ้า: ${TAMBON.join(', ')}`}
+          width={2000}
+          height={521}
+          className="hidden h-auto w-full md:block"
+        />
+
+        {/* จอเล็ก: ภาพแบนเนอร์อ่านไม่ออก จึงแสดงเป็นข้อความ + แผนที่แทน */}
+        <div className="overflow-hidden rounded-2xl bg-[#2f7d32] p-5 text-white md:hidden">
+          <div className="text-base font-semibold text-[#d6f5b0]">ชุมชนต้นแบบของน้องรักษ์</div>
+          <h2 className="text-4xl font-bold">คุ้งบางกะเจ้า</h2>
+          <p className="mt-3 text-[14px] leading-7">
+            น้องรักษ์เริ่มต้นจากการนำแนวคิดการจัดการขยะมาประยุกต์ใช้กับชุมชนคุ้งบางกะเจ้า เพื่อสร้างระบบที่เชื่อมโยงคนในชุมชน
+            เจ้าหน้าที่ และการจัดการขยะเข้าด้วยกัน
+          </p>
+          <div className="mt-4 flex items-center gap-4 rounded-xl bg-white p-4 text-[#154212]">
+            <div className="w-[48%] shrink-0 [&_svg]:h-auto [&_svg]:w-full">
+              <BangKachaoMap selectedDistrict="ทุกตำบล" />
+            </div>
+            <div>
+              <div className="font-bold">6 ตำบลคุ้งบางกะเจ้า</div>
+              <ul className="mt-2 list-disc pl-5 text-[13px] leading-6">
+                {TAMBON.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   )

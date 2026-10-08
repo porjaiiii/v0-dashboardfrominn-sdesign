@@ -40,7 +40,7 @@ function Leaf() {
   return <Image src="/landing/shapes/leaf.png" alt="" aria-hidden width={398} height={160} style={{ width: '100%', height: 'auto' }} />
 }
 
-export default function MascotBin({ size = 150, label = 'น้องรักษ์อยู่ในถังขยะ' }: { size?: number; label?: string }) {
+export default function MascotBin({ size = 150, label = 'น้องรักษ์อยู่ในถังขยะ' }: { size?: number | string; label?: string }) {
   const [active, setActive] = useState(false)
   /** สีขยะแต่ละชิ้น (true = อ่อน) — สุ่มใหม่ทุกครั้งที่เริ่มเล่น; ค่าเริ่มต้นคงที่เพื่อไม่ให้ hydration ไม่ตรง */
   const [light, setLight] = useState([false, true, false])
@@ -56,7 +56,7 @@ export default function MascotBin({ size = 150, label = 'น้องรัก�
       aria-label={label}
       aria-pressed={active}
       className={`${styles.root} ${active ? styles.active : ''}`}
-      style={{ '--w': `${size}px` } as CSSProperties}
+      style={{ '--w': typeof size === 'number' ? `${size}px` : size } as CSSProperties}
       onMouseEnter={start}
       onMouseLeave={() => setActive(false)}
       onFocus={start}
