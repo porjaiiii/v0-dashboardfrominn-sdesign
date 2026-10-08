@@ -29,8 +29,8 @@ export const LINK_INVALID_MESSAGE = 'ลิงก์ไม่ถูกต้อ�
 export const STALE_MESSAGE = 'สถานะบัญชีเปลี่ยนไปแล้ว กรุณาโหลดหน้าใหม่'
 
 export const PASSWORD_MIN_LENGTH = 8
-/** bcrypt ของ Supabase Auth รับได้ไม่เกิน 72 ไบต์ */
-export const PASSWORD_MAX_LENGTH = 72
+/** bcrypt ของ Supabase Auth รับได้ไม่เกิน 72 ไบต์ (UTF-8) — อักษรไทย 1 ตัวนับเป็น 3 ไบต์ */
+export const PASSWORD_MAX_BYTES = 72
 export const EMAIL_COOLDOWN_MS = 60_000
 export const VERIFY_EMAIL_TTL_MS = 24 * 60 * 60 * 1000
 export const RESET_PASSWORD_TTL_MS = 60 * 60 * 1000
@@ -42,7 +42,9 @@ export const cleanName = (v: string) => v.replace(/[\u0000-\u001f\u007f]+/g, ' '
 
 export function passwordError(password: string): string | null {
   if (password.length < PASSWORD_MIN_LENGTH) return `รหัสผ่านต้องมีอย่างน้อย ${PASSWORD_MIN_LENGTH} ตัวอักษร`
-  if (password.length > PASSWORD_MAX_LENGTH) return `รหัสผ่านต้องไม่เกิน ${PASSWORD_MAX_LENGTH} ตัวอักษร`
+  if (new TextEncoder().encode(password).length > PASSWORD_MAX_BYTES) {
+    return `รหัสผ่านยาวเกินไป (ไม่เกิน ${PASSWORD_MAX_BYTES} ไบต์ — อักษรไทย 1 ตัวนับเป็น 3 ไบต์)`
+  }
   return null
 }
 

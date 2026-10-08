@@ -28,6 +28,12 @@ describe('input rules', () => {
     expect(signupError({ ...good, password: '1234567' })).toMatch(/อย่างน้อย 8/)
     expect(signupError({ ...good, password: 'x'.repeat(73) })).toMatch(/ไม่เกิน 72/)
   })
+
+  it('limits passwords to 72 UTF-8 bytes, so Thai passwords count 3 bytes per character', () => {
+    const base = { fullName: 'สมชาย', email: 'a@b.co' }
+    expect(signupError({ ...base, password: 'ก'.repeat(24) })).toBeNull() // 72 bytes
+    expect(signupError({ ...base, password: 'ก'.repeat(25) })).toMatch(/ไม่เกิน 72 ไบต์/) // 75 bytes
+  })
 })
 
 describe('signupDecision', () => {
