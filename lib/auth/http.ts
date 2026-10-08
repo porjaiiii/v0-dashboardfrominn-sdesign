@@ -9,6 +9,10 @@ export const FOREIGN_ORIGIN_MESSAGE = 'คำขอไม่ได้มาจ�
 const NOT_CONFIGURED = 'ระบบเข้าสู่ระบบยังไม่ได้ตั้งค่า (ดู .env.example)'
 const FAILED = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
 
+/** หน่วงเวลาเมื่อรหัสผิด ให้การเดารหัสช้าลง */
+export const WRONG_CREDENTIALS_DELAY_MS = 800
+export const wrongCredentialsDelay = () => new Promise((r) => setTimeout(r, WRONG_CREDENTIALS_DELAY_MS))
+
 export const ok = (data: Record<string, unknown> = {}) => NextResponse.json({ ok: true, ...data }, { headers: NO_STORE })
 
 export const jsonError = (error: string, status: number, extra: Record<string, unknown> = {}) =>

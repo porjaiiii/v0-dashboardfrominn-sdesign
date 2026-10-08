@@ -4,9 +4,10 @@ import { POST as signup } from '@/app/api/auth/signup/route'
 import { POST as verify } from '@/app/api/auth/verify-email/route'
 import { getAccountByEmail, getAccountById, updateAccounts } from '@/lib/auth/accounts'
 import { notifyRootOfSignup, sendVerificationEmail } from '@/lib/auth/mailers'
-import { AuthApiError, createAuthUser, updateAuthUserPassword } from '@/lib/auth/supabase-auth'
+import { SIGNUP_PASSWORD_MISMATCH_MESSAGE, TOO_MANY_ATTEMPTS_MESSAGE } from '@/lib/auth/policy'
+import { AuthApiError, createAuthUser, updateAuthUserPassword, verifyPassword } from '@/lib/auth/supabase-auth'
 import { signToken } from '@/lib/auth/tokens'
-import { accountRow, request, SECRET, stubAuthEnv, USER_ID } from '@/tests/fixtures'
+import { accountRow, request, ROOT_ID, SECRET, stubAuthEnv, USER_ID } from '@/tests/fixtures'
 
 vi.mock('@/lib/auth/accounts', async (orig) => ({
   ...(await orig<typeof import('@/lib/auth/accounts')>()),
@@ -18,6 +19,7 @@ vi.mock('@/lib/auth/supabase-auth', async (orig) => ({
   ...(await orig<typeof import('@/lib/auth/supabase-auth')>()),
   createAuthUser: vi.fn(),
   updateAuthUserPassword: vi.fn(),
+  verifyPassword: vi.fn(),
 }))
 vi.mock('@/lib/auth/mailers', () => ({ sendVerificationEmail: vi.fn(), notifyRootOfSignup: vi.fn() }))
 
@@ -136,30 +138,80 @@ describe('POST /api/auth/signup', () => {
 describe('POST /api/auth/verify-email', () => {
   const tokenFor = (purpose: 'verify-email' | 'reset-password' = 'verify-email') =>
     signToken(SECRET, purpose, { sub: USER_ID, exp: Date.now() + 60_000 })
+  const verifyReq = (b: Record<string, unknown> = {}) =>
+    request('/api/auth/verify-email', { body: { token: tokenFor(), password: 'password123', ...b } })
 
-  it('moves unverified → pending and notifies the root admin', async () => {
+  beforeEach(() => {
+    vi.mocked(getAccountById).mockResolvedValue(accountRow({ status: 'unverified' }))
+    vi.mocked(verifyPassword).mockResolvedValue(USER_ID)
+  })
+
+  it('moves unverified → pending with the right password and notifies the root admin', async () => {
     const pending = accountRow({ status: 'pending' })
     vi.mocked(updateAccounts).mockResolvedValue([pending])
-    const res = await verify(request('/api/auth/verify-email', { body: { token: tokenFor() } }))
+    const res = await verify(verifyReq())
     expect(res.status).toBe(200)
+    expect(verifyPassword).toHaveBeenCalledWith(accountRow().email, 'password123')
     const [filters, patch] = vi.mocked(updateAccounts).mock.calls[0]
     expect(filters).toEqual({ id: `eq.${USER_ID}`, status: 'eq.unverified' })
     expect(patch).toMatchObject({ status: 'pending' })
     expect(notifyRootOfSignup).toHaveBeenCalledWith(pending)
   })
 
-  it('answers 400 the second time the same link is used', async () => {
-    vi.mocked(updateAccounts).mockResolvedValue([])
-    const res = await verify(request('/api/auth/verify-email', { body: { token: tokenFor() } }))
-    expect(res.status).toBe(400)
+  it.each([null, ROOT_ID])('answers 401 for a wrong password (verifyPassword → %s)', async (id) => {
+    vi.mocked(verifyPassword).mockResolvedValue(id)
+    const res = await verify(verifyReq())
+    expect(res.status).toBe(401)
+    expect((await res.json()).error).toBe(SIGNUP_PASSWORD_MISMATCH_MESSAGE)
+    expect(updateAccounts).not.toHaveBeenCalled()
     expect(notifyRootOfSignup).not.toHaveBeenCalled()
+  })
+
+  it('answers 400 when the link was already used (account no longer unverified) without asking Supabase', async () => {
+    vi.mocked(getAccountById).mockResolvedValue(accountRow({ status: 'pending' }))
+    expect((await verify(verifyReq())).status).toBe(400)
+    expect(verifyPassword).not.toHaveBeenCalled()
+    vi.mocked(getAccountById).mockResolvedValue(null)
+    expect((await verify(verifyReq())).status).toBe(400)
+    expect(verifyPassword).not.toHaveBeenCalled()
   })
 
   it('rejects a reset-password token and garbage without touching the database', async () => {
     for (const token of [tokenFor('reset-password'), 'garbage', '']) {
-      expect((await verify(request('/api/auth/verify-email', { body: { token } }))).status).toBe(400)
+      expect((await verify(verifyReq({ token }))).status).toBe(400)
     }
+    expect(getAccountById).not.toHaveBeenCalled()
     expect(updateAccounts).not.toHaveBeenCalled()
+  })
+
+  it('answers 400 for an empty password without touching the database', async () => {
+    const res = await verify(verifyReq({ password: '' }))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('กรุณากรอกรหัสผ่าน')
+    expect(getAccountById).not.toHaveBeenCalled()
+  })
+
+  it('answers 400 when the conditional update misses (race)', async () => {
+    vi.mocked(updateAccounts).mockResolvedValue([])
+    expect((await verify(verifyReq())).status).toBe(400)
+    expect(notifyRootOfSignup).not.toHaveBeenCalled()
+  })
+
+  it('answers 429 when Supabase rate-limits the password check', async () => {
+    vi.mocked(verifyPassword).mockRejectedValue(new AuthApiError(429, 'over_request_rate_limit'))
+    const res = await verify(verifyReq())
+    expect(res.status).toBe(429)
+    expect((await res.json()).error).toBe(TOO_MANY_ATTEMPTS_MESSAGE)
+    expect(updateAccounts).not.toHaveBeenCalled()
+  })
+
+  it('still succeeds when notifying the root admin fails', async () => {
+    vi.mocked(updateAccounts).mockResolvedValue([accountRow({ status: 'pending' })])
+    vi.mocked(notifyRootOfSignup).mockRejectedValue(new Error('smtp down'))
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect((await verify(verifyReq())).status).toBe(200)
+    expect(logged).toHaveBeenCalled()
+    logged.mockRestore()
   })
 })
 

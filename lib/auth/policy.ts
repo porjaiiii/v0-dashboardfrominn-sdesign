@@ -27,6 +27,8 @@ export const LOGIN_BLOCK_MESSAGES: Record<Exclude<AccountStatus, 'active'>, stri
 
 export const LINK_INVALID_MESSAGE = 'ลิงก์ไม่ถูกต้อง หมดอายุ หรือถูกใช้ไปแล้ว'
 export const WEAK_PASSWORD_MESSAGE = 'รหัสผ่านไม่ผ่านข้อกำหนดของระบบ กรุณาตั้งรหัสผ่านที่ปลอดภัยกว่านี้'
+export const TOO_MANY_ATTEMPTS_MESSAGE = 'พยายามบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่'
+export const SIGNUP_PASSWORD_MISMATCH_MESSAGE = 'รหัสผ่านไม่ถูกต้อง — ใช้รหัสผ่านที่ตั้งไว้ตอนสมัคร'
 export const STALE_MESSAGE = 'สถานะบัญชีเปลี่ยนไปแล้ว กรุณาโหลดหน้าใหม่'
 
 export const PASSWORD_MIN_LENGTH = 8

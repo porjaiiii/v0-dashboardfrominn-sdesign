@@ -1,12 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getAccountById } from '@/lib/auth/accounts'
-import { field, jsonError, NO_STORE, publicAuthRoute, readBody } from '@/lib/auth/http'
-import { LOGIN_BLOCK_MESSAGES, normalizeEmail, safeNext } from '@/lib/auth/policy'
+import { field, jsonError, NO_STORE, publicAuthRoute, readBody, wrongCredentialsDelay } from '@/lib/auth/http'
+import { LOGIN_BLOCK_MESSAGES, normalizeEmail, safeNext, TOO_MANY_ATTEMPTS_MESSAGE } from '@/lib/auth/policy'
 import { setSessionCookie } from '@/lib/auth/session'
 import { AuthApiError, verifyPassword } from '@/lib/auth/supabase-auth'
-
-/** หน่วงเวลาเมื่อรหัสผิด ให้การเดารหัสช้าลง */
-const WRONG_CREDENTIALS_DELAY_MS = 800
 
 export const POST = publicAuthRoute(async (req) => {
   const body = await readBody(req)
@@ -19,7 +16,7 @@ export const POST = publicAuthRoute(async (req) => {
     userId = await verifyPassword(email, password)
   } catch (err) {
     if (err instanceof AuthApiError && err.status === 429) {
-      return jsonError('พยายามเข้าสู่ระบบบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่', 429)
+      return jsonError(TOO_MANY_ATTEMPTS_MESSAGE, 429)
     }
     throw err
   }
@@ -27,7 +24,7 @@ export const POST = publicAuthRoute(async (req) => {
   // ผู้ใช้ Supabase Auth ที่ไม่มีแถวใน dashboard.accounts (เช่นบัญชีของแอปอื่น) ไม่ใช่บัญชีแดชบอร์ด
   const account = userId ? await getAccountById(userId) : null
   if (!account) {
-    await new Promise((r) => setTimeout(r, WRONG_CREDENTIALS_DELAY_MS))
+    await wrongCredentialsDelay()
     return jsonError('อีเมลหรือรหัสผ่านไม่ถูกต้อง', 401)
   }
   // บอกสาเหตุได้เพราะผ่านการตรวจรหัสผ่านแล้ว
