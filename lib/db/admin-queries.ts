@@ -8,7 +8,7 @@
 
 import { LOW_STOCK_THRESHOLD, RESTOCK_TARGET } from './constants'
 import * as mock from './mock'
-import { isSupabaseConfigured, quoteFilterValue, sbSelect, sbSelectAll, sbUpdate } from './supabase-rest'
+import { isSupabaseConfigured, likePattern, quoteFilterValue, sbSelect, sbSelectAll, sbUpdate } from './supabase-rest'
 import type {
   Coupon,
   DashboardSummary,
@@ -32,11 +32,6 @@ const offsetOf = (p: ListParams) => (p.page - 1) * p.pageSize
 
 function paginate<T>(rows: T[], p: ListParams): Page<T> {
   return { rows: rows.slice(offsetOf(p), offsetOf(p) + p.pageSize), total: rows.length }
-}
-
-/** ค้นหาแบบ ilike (ตัด wildcard ที่ผู้ใช้พิมพ์มาเพื่อไม่ให้เปลี่ยนความหมายของ pattern) */
-function likePattern(value: string): string {
-  return `*${value.replace(/[*%,()]/g, ' ').trim()}*`
 }
 
 /** ช่วงวันที่เวลาไทย → [gte, lt) เป็น ISO; to รวมทั้งวัน (บวก 1 วัน) */

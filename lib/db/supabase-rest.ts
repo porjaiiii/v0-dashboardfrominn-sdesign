@@ -20,11 +20,11 @@ export function isSupabaseConfigured(): boolean {
  * key รูปแบบใหม่ (sb_secret_...) ไม่ใช่ JWT จึงส่งเฉพาะ header apikey
  * key แบบเดิม (service_role, eyJ...) เป็น JWT ต้องส่งใน Authorization ด้วย
  */
-function authHeaders(key: string): Record<string, string> {
+export function authHeaders(key: string): Record<string, string> {
   return key.startsWith('sb_') ? { apikey: key } : { apikey: key, Authorization: `Bearer ${key}` }
 }
 
-function config() {
+export function supabaseConfig() {
   const url = readEnv('SUPABASE_URL')
   const key = readEnv('SUPABASE_SERVICE_ROLE_KEY')
   if (!url || !key) throw new Error('Supabase ยังไม่ได้ตั้งค่า (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)')
@@ -36,6 +36,11 @@ export function quoteFilterValue(value: string): string {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
 }
 
+/** ค้นหาแบบ ilike (ตัด wildcard ที่ผู้ใช้พิมพ์มาเพื่อไม่ให้เปลี่ยนความหมายของ pattern) */
+export function likePattern(value: string): string {
+  return `*${value.replace(/[*%,()]/g, ' ').trim()}*`
+}
+
 export interface SelectOptions {
   /** ตัวอย่าง: 'id,name,users(full_name)' */
   select?: string
@@ -43,10 +48,12 @@ export interface SelectOptions {
   filters?: Record<string, string>
   limit?: number
   offset?: number
+  /** schema อื่นนอกจากค่าเริ่มต้น (เช่น 'dashboard') */
+  schema?: string
 }
 
 export async function sbSelect<T>(table: string, opts: SelectOptions = {}): Promise<{ rows: T[]; total: number }> {
-  const { url, key, schema } = config()
+  const { url, key, schema } = supabaseConfig()
   const params = new URLSearchParams({ select: opts.select ?? '*', ...opts.filters })
   if (opts.limit !== undefined) params.set('limit', String(opts.limit))
   if (opts.offset !== undefined) params.set('offset', String(opts.offset))
@@ -54,7 +61,7 @@ export async function sbSelect<T>(table: string, opts: SelectOptions = {}): Prom
   const res = await fetch(`${url}/rest/v1/${table}?${params}`, {
     headers: {
       ...authHeaders(key),
-      'Accept-Profile': schema,
+      'Accept-Profile': opts.schema ?? schema,
       Prefer: 'count=exact',
     },
     cache: 'no-store',
@@ -71,13 +78,14 @@ export async function sbUpdate<T>(
   table: string,
   filters: Record<string, string>,
   patch: Record<string, unknown>,
+  opts: { schema?: string } = {},
 ): Promise<T[]> {
-  const { url, key, schema } = config()
+  const { url, key, schema } = supabaseConfig()
   const res = await fetch(`${url}/rest/v1/${table}?${new URLSearchParams(filters)}`, {
     method: 'PATCH',
     headers: {
       ...authHeaders(key),
-      'Content-Profile': schema,
+      'Content-Profile': opts.schema ?? schema,
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
     },
