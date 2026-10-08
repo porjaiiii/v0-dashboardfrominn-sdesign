@@ -23,13 +23,13 @@ function compose(to: string, subject: string, paragraphs: string[], link?: { url
 
 const SIGNATURE = 'ระบบข้อมูลร่วมอนุรักษ์โลก คุ้งบางกะเจ้า'
 
-export const verifyEmailMail = (to: string, name: string, url: string) =>
+export const verifyEmailMail = (to: string, url: string) =>
   compose(
     to,
     'ยืนยันอีเมลสำหรับบัญชีแดชบอร์ด',
     [
-      `สวัสดีคุณ ${name}`,
-      'กรุณายืนยันอีเมลเพื่อส่งคำขอเปิดบัญชีให้ผู้ดูแลระบบพิจารณา ลิงก์นี้ใช้ได้ภายใน 24 ชั่วโมง',
+      'สวัสดี',
+      'กดลิงก์ด้านล่าง แล้วกรอกรหัสผ่านที่ตั้งไว้ตอนสมัครเพื่อยืนยันอีเมล คำขอเปิดบัญชีจะถูกส่งให้ผู้ดูแลระบบพิจารณา ลิงก์นี้ใช้ได้ภายใน 24 ชั่วโมง',
       'หากคุณไม่ได้สมัครใช้งาน ไม่ต้องทำอะไร',
       SIGNATURE,
     ],

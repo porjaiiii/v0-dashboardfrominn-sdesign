@@ -1,7 +1,15 @@
-import { getAccountByEmail, getAccountById, updateAccounts, type AccountRow } from '@/lib/auth/accounts'
+import { countRecentSignups, getAccountByEmail, getAccountById, updateAccounts, type AccountRow } from '@/lib/auth/accounts'
 import { field, jsonError, ok, publicAuthRoute, readBody } from '@/lib/auth/http'
 import { sendVerificationEmail } from '@/lib/auth/mailers'
-import { cleanName, normalizeEmail, signupDecision, signupError, WEAK_PASSWORD_MESSAGE } from '@/lib/auth/policy'
+import {
+  cleanName,
+  normalizeEmail,
+  SIGNUP_BUSY_MESSAGE,
+  SIGNUP_HOURLY_CAP,
+  signupDecision,
+  signupError,
+  WEAK_PASSWORD_MESSAGE,
+} from '@/lib/auth/policy'
 import { createAuthUser, hasAuthErrorCode, updateAuthUserPassword } from '@/lib/auth/supabase-auth'
 
 const ALREADY_REGISTERED = 'อีเมลนี้ลงทะเบียนแล้ว — เข้าสู่ระบบ หรือใช้ "ลืมรหัสผ่าน"'
@@ -26,6 +34,9 @@ export const POST = publicAuthRoute(async (req) => {
 
   let account: AccountRow | null
   if (decision === 'create') {
+    // จำกัดบัญชีใหม่ต่อชั่วโมงทั้งระบบ — ฟอร์มสาธารณะนี้ส่งอีเมลออกได้
+    const since = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    if ((await countRecentSignups(since)) >= SIGNUP_HOURLY_CAP) return jsonError(SIGNUP_BUSY_MESSAGE, 429)
     try {
       // trigger dashboard_on_auth_user_created สร้างแถว dashboard.accounts ใน transaction เดียวกัน
       account = await getAccountById(await createAuthUser(input))

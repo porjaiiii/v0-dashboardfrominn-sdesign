@@ -22,7 +22,7 @@ function tokenLink(page: string, purpose: TokenPurpose, claims: TokenClaims): st
 export async function sendVerificationEmail(account: AccountRow, now = Date.now()): Promise<boolean> {
   const url = tokenLink('/verify-email', 'verify-email', { sub: account.id, exp: now + VERIFY_EMAIL_TTL_MS })
   if (!url || !(await claimEmailSlot(account.id, now))) return false
-  return sendMail(verifyEmailMail(account.email, account.full_name, url))
+  return sendMail(verifyEmailMail(account.email, url))
 }
 
 /** ลิงก์ผูกกับ sessions_valid_after ปัจจุบัน — ตั้งรหัสใหม่แล้วค่านี้เปลี่ยน ลิงก์เดิมจึงใช้ซ้ำไม่ได้ */

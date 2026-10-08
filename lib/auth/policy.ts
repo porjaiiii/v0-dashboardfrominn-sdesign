@@ -31,6 +31,10 @@ export const TOO_MANY_ATTEMPTS_MESSAGE = 'พยายามบ่อยเก�
 export const SIGNUP_PASSWORD_MISMATCH_MESSAGE = 'รหัสผ่านไม่ถูกต้อง — ใช้รหัสผ่านที่ตั้งไว้ตอนสมัคร'
 export const STALE_MESSAGE = 'สถานะบัญชีเปลี่ยนไปแล้ว กรุณาโหลดหน้าใหม่'
 
+/** สมัครบัญชีใหม่ได้ไม่เกินกี่บัญชีต่อชั่วโมง (กันใช้ฟอร์มสมัครส่งอีเมลสแปม) */
+export const SIGNUP_HOURLY_CAP = 20
+export const SIGNUP_BUSY_MESSAGE = 'มีผู้สมัครจำนวนมากในขณะนี้ กรุณาลองใหม่ภายหลัง'
+
 export const PASSWORD_MIN_LENGTH = 8
 /** bcrypt ของ Supabase Auth รับได้ไม่เกิน 72 ไบต์ (UTF-8) — อักษรไทย 1 ตัวนับเป็น 3 ไบต์ */
 export const PASSWORD_MAX_BYTES = 72

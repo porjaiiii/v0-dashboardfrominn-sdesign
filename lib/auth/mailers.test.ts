@@ -27,6 +27,7 @@ describe('sendVerificationEmail', () => {
     const [m] = sent()
     expect(m.to).toBe(account.email)
     expect(m.text).toContain(`${ORIGIN}/verify-email?token=`)
+    expect(m.text).not.toContain(account.full_name)
     const claims = verifyToken(SECRET, 'verify-email', tokenIn(m.text), NOW)
     expect(claims).toMatchObject({ sub: account.id, exp: NOW + 24 * 60 * 60 * 1000 })
   })

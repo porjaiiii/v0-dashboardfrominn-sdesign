@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { stubAuthEnv, USER_ID } from '@/tests/fixtures'
-import { claimEmailSlot, getAccountByEmail, getAccountById, listAccounts } from './accounts'
+import { claimEmailSlot, countRecentSignups, getAccountByEmail, getAccountById, listAccounts } from './accounts'
 
 const fetchMock = vi.fn()
 
@@ -79,5 +79,15 @@ describe('listAccounts', () => {
     fetchMock.mockResolvedValue(reply([], 0))
     await listAccounts({ page: 1, pageSize: 10, status: 'banana' })
     expect(call().url.searchParams.has('status')).toBe(false)
+  })
+})
+
+describe('countRecentSignups', () => {
+  it('counts accounts created since the given time', async () => {
+    fetchMock.mockResolvedValue(reply([{ id: USER_ID }], 21))
+    expect(await countRecentSignups('2026-10-08T02:00:00.000Z')).toBe(21)
+    const { url, headers } = call()
+    expect(url.searchParams.get('created_at')).toBe('gte.2026-10-08T02:00:00.000Z')
+    expect(headers.get('Accept-Profile')).toBe('dashboard')
   })
 })

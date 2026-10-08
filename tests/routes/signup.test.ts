@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST as resend } from '@/app/api/auth/resend-verification/route'
 import { POST as signup } from '@/app/api/auth/signup/route'
 import { POST as verify } from '@/app/api/auth/verify-email/route'
-import { getAccountByEmail, getAccountById, updateAccounts } from '@/lib/auth/accounts'
+import { countRecentSignups, getAccountByEmail, getAccountById, updateAccounts } from '@/lib/auth/accounts'
 import { notifyRootOfSignup, sendVerificationEmail } from '@/lib/auth/mailers'
-import { SIGNUP_PASSWORD_MISMATCH_MESSAGE, TOO_MANY_ATTEMPTS_MESSAGE } from '@/lib/auth/policy'
+import { SIGNUP_BUSY_MESSAGE, SIGNUP_HOURLY_CAP, SIGNUP_PASSWORD_MISMATCH_MESSAGE, TOO_MANY_ATTEMPTS_MESSAGE } from '@/lib/auth/policy'
 import { AuthApiError, createAuthUser, updateAuthUserPassword, verifyPassword } from '@/lib/auth/supabase-auth'
 import { signToken } from '@/lib/auth/tokens'
 import { accountRow, request, ROOT_ID, SECRET, stubAuthEnv, USER_ID } from '@/tests/fixtures'
@@ -13,6 +13,7 @@ vi.mock('@/lib/auth/accounts', async (orig) => ({
   ...(await orig<typeof import('@/lib/auth/accounts')>()),
   getAccountByEmail: vi.fn(),
   getAccountById: vi.fn(),
+  countRecentSignups: vi.fn(),
   updateAccounts: vi.fn(),
 }))
 vi.mock('@/lib/auth/supabase-auth', async (orig) => ({
@@ -31,6 +32,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(sendVerificationEmail).mockResolvedValue(true)
   vi.mocked(notifyRootOfSignup).mockResolvedValue(true)
+  vi.mocked(countRecentSignups).mockResolvedValue(0)
 })
 afterEach(() => vi.unstubAllEnvs())
 
@@ -79,6 +81,27 @@ describe('POST /api/auth/signup', () => {
     expect(updateAccounts).toHaveBeenCalledWith({ id: `eq.${USER_ID}`, status: 'eq.unverified' }, { full_name: 'สมชาย ใจดี' })
     expect(updateAuthUserPassword).toHaveBeenCalledWith(USER_ID, 'password123')
     expect(sendVerificationEmail).toHaveBeenCalledWith(refreshed)
+  })
+
+  it('answers 429 and creates nothing when the hourly sign-up cap is reached', async () => {
+    vi.mocked(getAccountByEmail).mockResolvedValue(null)
+    vi.mocked(countRecentSignups).mockResolvedValue(SIGNUP_HOURLY_CAP)
+    const res = await signup(signupReq())
+    expect(res.status).toBe(429)
+    expect((await res.json()).error).toBe(SIGNUP_BUSY_MESSAGE)
+    expect(createAuthUser).not.toHaveBeenCalled()
+    const since = Date.parse(vi.mocked(countRecentSignups).mock.calls[0][0])
+    expect(Date.now() - since).toBeGreaterThan(59 * 60_000)
+    expect(Date.now() - since).toBeLessThan(61 * 60_000)
+  })
+
+  it('does not consult the cap when refreshing an unverified account', async () => {
+    const existing = accountRow({ status: 'unverified' })
+    vi.mocked(getAccountByEmail).mockResolvedValue(existing)
+    vi.mocked(updateAccounts).mockResolvedValue([existing])
+    vi.mocked(countRecentSignups).mockResolvedValue(SIGNUP_HOURLY_CAP + 5)
+    expect((await signup(signupReq())).status).toBe(200)
+    expect(countRecentSignups).not.toHaveBeenCalled()
   })
 
   it('does not change the password if the account got verified meanwhile', async () => {

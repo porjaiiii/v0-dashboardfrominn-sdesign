@@ -3,11 +3,18 @@ import { approvedMail, newSignupMail, rejectedMail, resetPasswordMail, verifyEma
 
 describe('email templates', () => {
   it('puts the link in both the text and the HTML body', () => {
-    const m = verifyEmailMail('a@b.co', 'สมชาย', 'https://dash.example/verify-email?token=abc')
+    const m = verifyEmailMail('a@b.co', 'https://dash.example/verify-email?token=abc')
     expect(m.to).toBe('a@b.co')
     expect(m.text).toContain('https://dash.example/verify-email?token=abc')
     expect(m.html).toContain('href="https://dash.example/verify-email?token=abc"')
-    expect(m.text).toContain('สมชาย')
+    expect(m.text).toContain('รหัสผ่านที่ตั้งไว้ตอนสมัคร')
+  })
+
+  it('does not carry any applicant-supplied text in the confirmation email', () => {
+    const m = verifyEmailMail('a@b.co', 'https://dash.example/verify-email?token=abc')
+    expect(m.text).toContain('สวัสดี')
+    expect(m.text).not.toContain('สมชาย')
+    expect(verifyEmailMail.length).toBe(2)
   })
 
   it('escapes HTML in names', () => {
@@ -23,7 +30,7 @@ describe('email templates', () => {
 
   it('has a subject on every message', () => {
     const all = [
-      verifyEmailMail('a@b.co', 'x', 'u'),
+      verifyEmailMail('a@b.co', 'u'),
       newSignupMail('a@b.co', { name: 'x', email: 'y' }, 'u'),
       approvedMail('a@b.co', 'x', 'user', 'u'),
       rejectedMail('a@b.co', 'x'),

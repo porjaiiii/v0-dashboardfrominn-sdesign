@@ -68,6 +68,17 @@ export async function claimEmailSlot(id: string, now = Date.now()): Promise<bool
   return rows.length > 0
 }
 
+/** จำนวนบัญชีที่สร้างตั้งแต่เวลาที่กำหนด (ใช้จำกัดการสมัครต่อชั่วโมง) */
+export async function countRecentSignups(sinceIso: string): Promise<number> {
+  const { total } = await sbSelect<{ id: string }>(TABLE, {
+    schema: DASHBOARD_SCHEMA,
+    select: 'id',
+    filters: { created_at: `gte.${sinceIso}` },
+    limit: 1,
+  })
+  return total
+}
+
 export function listAccounts(p: ListParams): Promise<Page<AccountListItem>> {
   const filters: Record<string, string> = { order: 'created_at.desc,id.asc' }
   if (p.status && (ACCOUNT_STATUSES as readonly string[]).includes(p.status)) filters.status = `eq.${p.status}`
