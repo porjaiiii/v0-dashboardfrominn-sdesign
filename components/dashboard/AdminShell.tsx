@@ -1,17 +1,20 @@
 'use client'
 
-import { useState, useEffect, ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
+import { createContext, useContext, useState, ReactNode } from 'react'
 import Image from 'next/image'
 import AdminSidebar from '@/components/dashboard/AdminSidebar'
-import { useAuth } from '@/lib/auth-context'
-import { useLiff } from '@/lib/liff-context'
+import { useSession, type SessionAccount } from '@/lib/use-session'
 import { fontStyle } from '@/lib/design-tokens'
 import { ADMIN_COLORS } from '@/lib/admin-tokens'
 
+const CurrentAccountContext = createContext<SessionAccount | null>(null)
+
+/** บัญชีแอดมินที่ล็อกอินอยู่ — ใช้ได้ในคอมโพเนนต์ที่อยู่ภายใน AdminShell */
+export const useCurrentAccount = () => useContext(CurrentAccountContext)
+
 /**
  * โครงหน้าแอดมิน: sidebar + header (โปรไฟล์/โลโก้) + เนื้อหา
- * ตรวจการล็อกอินจาก /api/admin/session (cookie ที่เซิร์ฟเวอร์ออกให้หลังกรอกรหัสที่ /admin/login)
+ * ตรวจการล็อกอินจาก /api/auth/session — ผู้ใช้ที่ไม่ใช่แอดมินจะถูกส่งไปหน้าแดชบอร์ดผู้ใช้
  */
 export default function AdminShell({
   activeHref,
@@ -20,36 +23,10 @@ export default function AdminShell({
   activeHref: string
   children: ReactNode
 }) {
-  const router = useRouter()
-  const { emailUser } = useAuth()
-  const { isLoggedIn: liffLoggedIn, profile: liffProfile } = useLiff()
+  const { account, logout } = useSession('admin')
   const [profileOpen, setProfileOpen] = useState(false)
-  const [authed, setAuthed] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/admin/session', { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((s: { authenticated: boolean }) => {
-        if (cancelled) return
-        if (s.authenticated) setAuthed(true)
-        else router.replace(`/admin/login?next=${encodeURIComponent(window.location.pathname)}`)
-      })
-      .catch(() => !cancelled && router.replace('/admin/login'))
-    return () => {
-      cancelled = true
-    }
-  }, [router])
-
-  if (!authed) return null
-
-  const displayName = liffLoggedIn ? liffProfile?.displayName ?? '' : emailUser?.name || 'แอดมิน'
-  const avatarUrl = liffLoggedIn ? liffProfile?.pictureUrl : null
-
-  const handleLogout = async () => {
-    await fetch('/api/admin/logout', { method: 'POST' }).catch(() => {})
-    router.push('/')
-  }
+  if (!account) return null
 
   return (
     <div className="flex" style={{ minHeight: '100vh', backgroundColor: '#ffffff' }}>
@@ -72,36 +49,24 @@ export default function AdminShell({
               className="flex items-center"
               style={{ gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
             >
-              {avatarUrl ? (
-                <Image
-                  src={avatarUrl}
-                  alt="profile"
-                  width={30}
-                  height={30}
-                  style={{ borderRadius: '50%', objectFit: 'cover' }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: '50%',
-                    backgroundColor: ADMIN_COLORS.navyHeader,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#ffffff',
-                    fontSize: 14,
-                    fontWeight: 700,
-                    ...fontStyle,
-                  }}
-                >
-                  {displayName.charAt(0)}
-                </div>
-              )}
-              <span style={{ color: ADMIN_COLORS.navy, fontSize: 14, fontWeight: 600, ...fontStyle }}>
-                {displayName}
-              </span>
+              <div
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: '50%',
+                  backgroundColor: ADMIN_COLORS.navyHeader,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffffff',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  ...fontStyle,
+                }}
+              >
+                {account.fullName.charAt(0)}
+              </div>
+              <span style={{ color: ADMIN_COLORS.navy, fontSize: 14, fontWeight: 600, ...fontStyle }}>{account.fullName}</span>
             </button>
 
             {profileOpen && (
@@ -114,13 +79,16 @@ export default function AdminShell({
                   border: '1.5px solid #e5e7eb',
                   borderRadius: 10,
                   boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
-                  minWidth: 180,
+                  minWidth: 220,
                   zIndex: 50,
                   overflow: 'hidden',
                 }}
               >
+                <p style={{ margin: 0, padding: '10px 16px', color: '#6b7280', fontSize: 13, borderBottom: '1px solid #f3f4f6', ...fontStyle }}>
+                  {account.email}
+                </p>
                 <button
-                  onClick={handleLogout}
+                  onClick={logout}
                   style={{
                     display: 'block',
                     width: '100%',
@@ -145,7 +113,7 @@ export default function AdminShell({
         </div>
 
         <main style={{ padding: '0 20px 30px', display: 'flex', flexDirection: 'column' }}>
-          {children}
+          <CurrentAccountContext.Provider value={account}>{children}</CurrentAccountContext.Provider>
         </main>
       </div>
     </div>
