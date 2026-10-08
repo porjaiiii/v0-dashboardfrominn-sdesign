@@ -17,6 +17,11 @@ export class AuthApiError extends Error {
   }
 }
 
+/** err เป็น AuthApiError ที่มีรหัสตรงกับรายการนี้ไหม */
+export function hasAuthErrorCode(err: unknown, ...codes: string[]): err is AuthApiError {
+  return err instanceof AuthApiError && !!err.code && codes.includes(err.code)
+}
+
 /** Supabase Auth ส่งรหัสใน error_code (รูปแบบเดิม) หรือ code (API version ใหม่) */
 function errorCode(body: string): string | undefined {
   try {
