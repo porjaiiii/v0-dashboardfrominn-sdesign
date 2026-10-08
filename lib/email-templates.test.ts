@@ -1,0 +1,34 @@
+import { describe, expect, it } from 'vitest'
+import { approvedMail, newSignupMail, rejectedMail, resetPasswordMail, verifyEmailMail } from './email-templates'
+
+describe('email templates', () => {
+  it('puts the link in both the text and the HTML body', () => {
+    const m = verifyEmailMail('a@b.co', 'สมชาย', 'https://dash.example/verify-email?token=abc')
+    expect(m.to).toBe('a@b.co')
+    expect(m.text).toContain('https://dash.example/verify-email?token=abc')
+    expect(m.html).toContain('href="https://dash.example/verify-email?token=abc"')
+    expect(m.text).toContain('สมชาย')
+  })
+
+  it('escapes HTML in names', () => {
+    const m = newSignupMail('root@b.co', { name: '<script>x</script>', email: 'a@b.co' }, 'https://dash.example/admin/accounts')
+    expect(m.html).not.toContain('<script>')
+    expect(m.html).toContain('&lt;script&gt;')
+  })
+
+  it('says which role was approved', () => {
+    expect(approvedMail('a@b.co', 'สมชาย', 'admin', 'https://dash.example/login').text).toContain('แอดมิน')
+    expect(approvedMail('a@b.co', 'สมชาย', 'user', 'https://dash.example/login').text).toContain('ผู้ใช้')
+  })
+
+  it('has a subject on every message', () => {
+    const all = [
+      verifyEmailMail('a@b.co', 'x', 'u'),
+      newSignupMail('a@b.co', { name: 'x', email: 'y' }, 'u'),
+      approvedMail('a@b.co', 'x', 'user', 'u'),
+      rejectedMail('a@b.co', 'x'),
+      resetPasswordMail('a@b.co', 'x', 'u'),
+    ]
+    for (const m of all) expect(m.subject.length).toBeGreaterThan(0)
+  })
+})
