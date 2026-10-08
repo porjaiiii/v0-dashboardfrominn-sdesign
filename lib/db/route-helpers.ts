@@ -1,23 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { SESSION_COOKIE, authMode, verifySessionToken } from './admin-session'
+import { requireAccount } from '@/lib/auth/http'
 import { PAGE_SIZE } from './constants'
 import type { ListParams, Page } from './types'
 
 /**
- * ป้องกัน API แอดมิน — ดู ./admin-session
- * 401 = ยังไม่ล็อกอิน / เซสชันหมดอายุ, 501 = เชื่อม Supabase แล้วแต่ยังไม่ได้ตั้ง ADMIN_PASSWORD
+ * ป้องกัน API แอดมิน — ใช้เซสชันบัญชีแดชบอร์ด (ดู lib/auth/session.ts)
+ * 401 = ยังไม่ล็อกอิน/เซสชันหมดอายุ, 403 = ไม่ใช่แอดมิน, 503 = ยังไม่ได้ตั้งค่าระบบล็อกอิน
  */
-export function guardAdmin(req: NextRequest): NextResponse | null {
-  const mode = authMode()
-  if (mode === 'open') return null
-  if (mode === 'unconfigured') {
-    return NextResponse.json(
-      { error: 'ยังไม่ได้ตั้งค่า ADMIN_PASSWORD บนเซิร์ฟเวอร์ (ดู .env.example)' },
-      { status: 501 },
-    )
-  }
-  if (verifySessionToken(req.cookies.get(SESSION_COOKIE)?.value)) return null
-  return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบแอดมิน' }, { status: 401 })
+export async function guardAdmin(req: NextRequest): Promise<NextResponse | null> {
+  const result = await requireAccount(req, 'admin')
+  return 'denied' in result ? result.denied : null
+}
+
+/** ป้องกัน API ข้อมูลที่ผู้ใช้ทุกบทบาทที่ล็อกอินแล้วเห็นได้ */
+export async function guardSignedIn(req: NextRequest): Promise<NextResponse | null> {
+  const result = await requireAccount(req, 'signed-in')
+  return 'denied' in result ? result.denied : null
 }
 
 const clampInt = (v: string | null, fallback: number, min: number, max: number) => {
@@ -50,7 +48,7 @@ export function parseListParams(req: NextRequest): ListParams {
 /** ห่อ handler ให้ตรวจสิทธิ์ + จับ error เป็น JSON เหมือนกันทุก route */
 export function handle<T>(fn: (req: NextRequest) => Promise<T>) {
   return async (req: NextRequest) => {
-    const denied = guardAdmin(req)
+    const denied = await guardAdmin(req)
     if (denied) return denied
     try {
       return NextResponse.json(await fn(req), { headers: { 'Cache-Control': 'no-store' } })

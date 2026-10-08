@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readTab, readEnv, usingApiKey } from '@/lib/google-sheets'
+import { guardSignedIn } from '@/lib/db/route-helpers'
 
 // ─── Environment Variables & Constants ──────────────────────────────────────
 const SPREADSHEET_ID = readEnv('REGISTRATION_SHEETS_ID') || '1vvBe_ZySfSq4oP8tfwHDUg-Jo3gBr9QanQWqLATAkNE'
@@ -99,6 +100,8 @@ async function buildNameMap(): Promise<Record<string, UserInfo>> {
 // ─── GET Handler (ดึงก้อนเดียวได้ทั้งหมด) ───────────────────────────────────
 
 export async function GET(request: NextRequest) {
+  const denied = await guardSignedIn(request)
+  if (denied) return denied
   try {
     // 1. อ่านข้อมูล Registration และ submission พร้อมกันแบบ Parallel
     const [nameMapResult, submissionRowsResult] = await Promise.allSettled([
