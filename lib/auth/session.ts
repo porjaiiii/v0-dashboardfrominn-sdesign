@@ -53,7 +53,7 @@ export async function getSessionAccount(req: NextRequest, now = Date.now()): Pro
 
   const row = await getAccountById(claims.sub)
   if (!row || row.status !== 'active') return null
-  // ออก token ก่อนการรีเซ็ตรหัสผ่านครั้งล่าสุด = ใช้ไม่ได้
-  if (claims.iat <= Date.parse(row.sessions_valid_after)) return null
+  // ออก token ก่อนการรีเซ็ตรหัสผ่านครั้งล่าสุด = ใช้ไม่ได้ (เวลาอ่านไม่ออก = ปฏิเสธไว้ก่อน)
+  if (!(claims.iat > Date.parse(row.sessions_valid_after))) return null
   return toSessionAccount(row)
 }

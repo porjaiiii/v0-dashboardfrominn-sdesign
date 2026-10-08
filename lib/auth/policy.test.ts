@@ -115,10 +115,10 @@ describe('admin account actions', () => {
       expectStatus: 'active',
       patch: { role: 'admin' },
     })
-    expect(planAccountAction(ACTOR, target({ status: 'active' }), 'disable', undefined)).toEqual({
+    expect(planAccountAction(ACTOR, target({ status: 'active' }), 'disable', undefined, NOW)).toEqual({
       ok: true,
       expectStatus: 'active',
-      patch: { status: 'disabled' },
+      patch: { status: 'disabled', sessions_valid_after: NOW.toISOString() },
     })
     expect(planAccountAction(ACTOR, target({ status: 'disabled' }), 'enable', undefined, NOW)).toEqual({
       ok: true,

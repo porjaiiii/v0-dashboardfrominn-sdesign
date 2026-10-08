@@ -47,6 +47,11 @@ describe('getSessionAccount', () => {
     expect(await getSessionAccount(withCookie(sessionCookie(USER_ID, issued)))).toBeNull()
   })
 
+  it('fails closed when sessions_valid_after cannot be parsed', async () => {
+    vi.mocked(getAccountById).mockResolvedValue(accountRow({ sessions_valid_after: 'not-a-date' }))
+    expect(await getSessionAccount(withCookie(sessionCookie(USER_ID)))).toBeNull()
+  })
+
   it('rejects when the account was deleted', async () => {
     vi.mocked(getAccountById).mockResolvedValue(null)
     expect(await getSessionAccount(withCookie(sessionCookie(USER_ID)))).toBeNull()

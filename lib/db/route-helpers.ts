@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAccount } from '@/lib/auth/http'
+import { FOREIGN_ORIGIN_MESSAGE, isSameOrigin, requireAccount } from '@/lib/auth/http'
 import { PAGE_SIZE } from './constants'
 import type { ListParams, Page } from './types'
 
@@ -48,6 +48,10 @@ export function parseListParams(req: NextRequest): ListParams {
 /** ห่อ handler ให้ตรวจสิทธิ์ + จับ error เป็น JSON เหมือนกันทุก route */
 export function handle<T>(fn: (req: NextRequest) => Promise<T>) {
   return async (req: NextRequest) => {
+    // กัน CSRF: คำขอที่เปลี่ยนข้อมูลต้องมาจากเว็บนี้
+    if (req.method !== 'GET' && !isSameOrigin(req)) {
+      return NextResponse.json({ error: FOREIGN_ORIGIN_MESSAGE }, { status: 403, headers: { 'Cache-Control': 'no-store' } })
+    }
     const denied = await guardAdmin(req)
     if (denied) return denied
     try {

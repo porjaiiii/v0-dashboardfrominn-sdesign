@@ -3,7 +3,7 @@
 --
 -- รันครั้งเดียวใน Supabase → SQL Editor (รันซ้ำได้) แล้ว:
 --   1) Settings → API → Exposed schemas: เพิ่ม `dashboard`
---   2) Authentication → Providers → Email: ปิด "Allow new users to sign up"
+--   2) Authentication → Providers → Email: ปิด "Allow new users to sign up" (ตั้งค่านี้มีผลทั้งโปรเจกต์ — ตรวจก่อนว่าแอปจัดการขยะไม่ได้ใช้การสมัครผ่าน Supabase Auth)
 --   3) pnpm run create-root-admin <email>
 --
 -- Supabase Auth เก็บแค่อีเมล+รหัสผ่าน; บทบาท/สถานะอยู่ที่ dashboard.accounts

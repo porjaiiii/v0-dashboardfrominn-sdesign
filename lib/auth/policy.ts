@@ -143,7 +143,8 @@ export function planAccountAction(
       if (!isRole(role)) return BAD_ROLE
       return whenStatus(target, 'active', { patch: { role } })
     case 'disable':
-      return whenStatus(target, 'active', { patch: { status: 'disabled' } })
+      // ตัดเซสชันและลิงก์รีเซ็ตรหัสผ่านที่ออกไปแล้วด้วย
+      return whenStatus(target, 'active', { patch: { status: 'disabled', sessions_valid_after: at } })
     case 'enable':
       return whenStatus(target, 'disabled', { patch: { status: 'active', approved_at: at, approved_by: actorId } })
     default:
