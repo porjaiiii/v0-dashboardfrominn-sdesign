@@ -246,24 +246,6 @@ function TreeVisual({ trees }: { trees: number | null }) {
 
 /* ───────────── ส่วนที่ใช้ในหน้าแรก ───────────── */
 
-const EXPLAIN: { title: string; text: string }[] = [
-  {
-    title: 'ขยะสะสม (kg)',
-    text: 'น้ำหนักรวมของขยะรีไซเคิลที่ผู้ใช้บันทึกผ่านน้องรักษ์ ตั้งแต่เริ่มโครงการจนถึงปัจจุบัน',
-  },
-  {
-    title: 'ลดก๊าซเรือนกระจก (kgCO₂e)',
-    text: 'ปริมาณก๊าซเรือนกระจกที่ลดได้จากการนำขยะไปรีไซเคิลแทนการทิ้ง คำนวณจากน้ำหนักขยะแต่ละประเภทคูณค่าสัมประสิทธิ์คาร์บอนของประเภทนั้น',
-  },
-  {
-    title: 'ผู้ใช้งาน (คน)',
-    text: 'จำนวนคนที่ลงทะเบียนใช้งานน้องรักษ์',
-  },
-  {
-    title: 'ต้นไม้เทียบเท่า (ต้น)',
-    text: `แปลงยอดก๊าซเรือนกระจกที่ลดได้ให้จับต้องง่ายขึ้น โดยหารด้วย ${KG_CO2_PER_TREE} (ต้นไม้ 1 ต้นดูดซับคาร์บอนได้ประมาณ ${KG_CO2_PER_TREE} kgCO₂) เป็นค่าประมาณ ไม่ใช่จำนวนต้นไม้ที่ปลูกจริง`,
-  },
-]
 
 export default function LandingStats() {
   const [stats, setStats] = useState<PublicStats | null>(null)
@@ -320,19 +302,6 @@ export default function LandingStats() {
       </div>
 
       <TreeVisual trees={trees} />
-
-      <div className="rounded-xl border border-[#cfe9b6] p-4 md:p-5">
-        <h3 className="text-base font-bold md:text-lg" style={{ color: DEEP }}>ตัวเลขเหล่านี้คืออะไร</h3>
-        <p className="mt-1 text-[13px] text-[#2f7d32]">สรุปจากข้อมูลที่ผู้ใช้บันทึกไว้ในระบบน้องรักษ์ ทั้งหมดเป็นยอดรวม ไม่ระบุตัวบุคคล</p>
-        <dl className="mt-3 grid gap-3 md:grid-cols-2">
-          {EXPLAIN.map((e) => (
-            <div key={e.title}>
-              <dt className="text-sm font-bold" style={{ color: DEEP }}>{e.title}</dt>
-              <dd className="mt-0.5 text-[13px] leading-6 text-[#2f7d32]">{e.text}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
     </div>
   )
 }

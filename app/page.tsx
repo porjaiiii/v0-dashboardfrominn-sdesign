@@ -1,11 +1,10 @@
 import Link from 'next/link'
-import BangKachaoMap from '@/components/dashboard/BangKachaoMap'
 import HeroCarousel from '@/components/landing/HeroCarousel'
 import HeroScene from '@/components/landing/HeroScene'
 import LandingStats from '@/components/landing/LandingStats'
 import SiteNav from '@/components/landing/SiteNav'
-import { AboutSection, CtaBanner, LineSection, SiteFooter } from '@/components/landing/sections'
-import { DEEP, LIME, Leaf, RecycleBadge, SOFT, photo } from '@/components/landing/shared'
+import { AboutSection, CommunityBanner, CtaBanner, LineSection, SiteFooter } from '@/components/landing/sections'
+import { DEEP, LIME, RecycleBadge, SOFT, photo } from '@/components/landing/shared'
 import { LOGIN_HREF } from '@/lib/site'
 
 /**
@@ -16,8 +15,6 @@ import { LOGIN_HREF } from '@/lib/site'
  *   cta-bg.jpg, plastic.jpg, paper.jpg, glass.jpg, aluminium.jpg, phone.png
  *   (hero-slide-1/2.webp, community-1/2.webp, line-qr.png มีแล้ว)
  */
-
-const TAMBON = ['บางกะเจ้า', 'บางยอ', 'บางกอบัว', 'บางน้ำผึ้ง', 'บางกระสอบ', 'ทรงคนอง']
 
 const WASTE_TYPES = [
   { name: 'พลาสติก', bg: '#dff5c8', icon: '#8ed04a', file: 'plastic.jpg' },
@@ -57,6 +54,7 @@ export default function LandingPage() {
       </section>
 
       <AboutSection />
+      <CommunityBanner />
 
       {/* ───────── สถิติ ───────── */}
       <section className="px-4 py-6 md:px-16">
@@ -76,34 +74,6 @@ export default function LandingPage() {
               ทีมงานน้องรักษ์ลงพื้นที่พูดคุยกับคนในชุมชนคุ้งบางกะเจ้า เพื่อทำความเข้าใจพฤติกรรมการจัดการขยะ รับฟังปัญหา
               และนำความคิดเห็นมาพัฒนาระบบให้ตอบโจทย์การใช้งานจริง
             </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ───────── ชุมชนต้นแบบ ───────── */}
-      <section id="community" className="relative overflow-hidden px-4 py-8 md:px-16" style={{ backgroundColor: LIME }}>
-        <Leaf className="-left-6 top-6 h-14 w-32 -rotate-12" />
-        <div className="relative mx-auto grid max-w-5xl items-center gap-5 md:grid-cols-2">
-          <div className="px-1">
-            <div className="text-lg font-bold" style={{ color: '#2f7d32' }}>ชุมชนต้นแบบของน้องรักษ์</div>
-            <h2 className="text-4xl font-bold md:text-5xl" style={{ color: DEEP }}>คุ้งบางกะเจ้า</h2>
-            <p className="mt-3 text-[13px] leading-6 text-[#2f7d32] md:text-base md:leading-7">
-              น้องรักษ์เริ่มต้นจากการนำแนวคิดการจัดการขยะมาประยุกต์ใช้กับชุมชนคุ้งบางกะเจ้า เพื่อสร้างระบบที่เชื่อมโยงคนในชุมชน
-              เจ้าหน้าที่ และการจัดการขยะเข้าด้วยกัน
-            </p>
-          </div>
-          <div className="flex items-center gap-4 rounded-xl bg-white p-4 shadow-sm">
-            <div className="w-[48%] shrink-0 [&_svg]:h-auto [&_svg]:w-full">
-              <BangKachaoMap selectedDistrict="ทุกตำบล" />
-            </div>
-            <div>
-              <div className="font-bold" style={{ color: DEEP }}>6 ตำบลคุ้งบางกะเจ้า</div>
-              <ul className="mt-2 list-disc pl-5 text-[13px] leading-6 text-[#154212]">
-                {TAMBON.map((t) => (
-                  <li key={t}>{t}</li>
-                ))}
-              </ul>
-            </div>
           </div>
         </div>
       </section>
