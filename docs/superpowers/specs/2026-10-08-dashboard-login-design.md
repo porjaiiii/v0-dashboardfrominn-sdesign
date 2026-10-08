@@ -34,7 +34,7 @@ The dashboard uses the same Supabase project as the waste management app, but **
 | Root admin | Exactly one, enforced by a partial unique index. Created by a script; moved by a script calling `dashboard.transfer_root()`. |
 | Email | `nodemailer` + Gmail SMTP with a Google app password. |
 | Supabase Auth public sign-up | Turned **off** in the project settings. Our server creates users via the admin API, which still works. |
-| Supabase Auth email confirmation | Not used. We send our own confirmation link and then mark the Auth user confirmed. |
+| Supabase Auth email confirmation | Not used. Auth users are created with `email_confirm: true`; our `status` column (`unverified` → `pending`) is the only confirmation state, so Supabase's "Email not confirmed" check never blocks the password check. |
 | Page gating | Unchanged pattern: the page shell asks `/api/auth/session` and redirects. All data comes from APIs, and the APIs enforce access. No `proxy.ts`. |
 
 Why role and status live in a table rather than `app_metadata`: the table can be filtered and paged (pending list), the database enforces valid values and the single root, `transfer_root` can be one transaction, and there is only one copy to keep consistent. The usual benefit of `app_metadata` (role inside Supabase's JWT) doesn't apply because nothing uses Supabase's JWTs.
@@ -169,8 +169,8 @@ All mutating routes check that the `Origin` header matches the request's own ori
 
 | Route | Who | Behaviour |
 |---|---|---|
-| `POST /api/auth/signup` `{fullName, email, password}` | public | Validate (name 1–100 chars, valid email, password ≥ 8). New email → Auth admin `create user` with `email_confirm: false`, `app_metadata.source = 'dashboard'`, `user_metadata.full_name`; trigger makes the row; send confirmation email. Unverified email → see lifecycle. Other status → 409 "already registered". |
-| `POST /api/auth/verify-email` `{token}` | public | Valid token and status `unverified` → status `pending`, `email_verified_at = now()`, mark the Auth user's email confirmed, email the root admin. Returns `{ok}`; the page then goes to `/login?notice=verified`. Bad/expired/used → 400 and the page shows "link invalid or expired". (A POST from a button, not a GET, so email link scanners and prefetchers can't trigger it.) |
+| `POST /api/auth/signup` `{fullName, email, password}` | public | Validate (name 1–100 chars, valid email, password ≥ 8). New email → Auth admin `create user` with `email_confirm: true`, `app_metadata.source = 'dashboard'`, `user_metadata.full_name`; trigger makes the row; send confirmation email. Unverified email → see lifecycle. Other status → 409 "already registered". |
+| `POST /api/auth/verify-email` `{token}` | public | Valid token and status `unverified` → status `pending`, `email_verified_at = now()`, email the root admin. Returns `{ok}`; the page then goes to `/login?notice=verified`. Bad/expired/used → 400 and the page shows "link invalid or expired". (A POST from a button, not a GET, so email link scanners and prefetchers can't trigger it.) |
 | `POST /api/auth/resend-verification` `{email}` | public | If the account exists and is `unverified` and the cooldown has passed, resend. Always answers `{ok: true}`. |
 | `POST /api/auth/login` `{email, password, next?}` | public | Supabase password grant. Wrong credentials → 401 generic message after an 800 ms delay. Correct → load the row: `unverified` / `pending` / `disabled` → 403 with `reason`; `active` → set cookie, return `{redirect}`. |
 | `POST /api/auth/logout` | any | Clear the cookie. |
