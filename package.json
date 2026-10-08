@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "create-root-admin": "node --env-file=.env.local scripts/create-root-admin.mjs",
+    "transfer-root": "node --env-file=.env.local scripts/transfer-root.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
