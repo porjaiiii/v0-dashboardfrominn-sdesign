@@ -44,27 +44,29 @@ export const newSignupMail = (to: string, applicant: { name: string; email: stri
     { url, label: 'ดูคำขอที่รออนุมัติ' },
   )
 
-export const approvedMail = (to: string, name: string, role: Role, url: string) =>
+// อีเมลถึงเจ้าของบัญชีไม่ใส่ชื่อ — ชื่อมาจากคนที่กรอกฟอร์มสมัคร จึงอาจถูกใช้แทรกข้อความสแปม
+
+export const approvedMail = (to: string, role: Role, url: string) =>
   compose(
     to,
     'บัญชีแดชบอร์ดของคุณได้รับการอนุมัติแล้ว',
-    [`สวัสดีคุณ ${name}`, `บัญชีของคุณได้รับการอนุมัติในบทบาท "${ROLE_LABELS[role]}" แล้ว เข้าสู่ระบบได้ทันที`, SIGNATURE],
+    ['สวัสดี', `บัญชีของคุณได้รับการอนุมัติในบทบาท "${ROLE_LABELS[role]}" แล้ว เข้าสู่ระบบได้ทันที`, SIGNATURE],
     { url, label: 'เข้าสู่ระบบ' },
   )
 
-export const rejectedMail = (to: string, name: string) =>
+export const rejectedMail = (to: string) =>
   compose(to, 'ผลการพิจารณาคำขอบัญชีแดชบอร์ด', [
-    `สวัสดีคุณ ${name}`,
+    'สวัสดี',
     'คำขอเปิดบัญชีแดชบอร์ดของคุณไม่ได้รับการอนุมัติ หากคิดว่าเป็นความผิดพลาด กรุณาติดต่อผู้ดูแลระบบ',
     SIGNATURE,
   ])
 
-export const resetPasswordMail = (to: string, name: string, url: string) =>
+export const resetPasswordMail = (to: string, url: string) =>
   compose(
     to,
     'ตั้งรหัสผ่านใหม่สำหรับบัญชีแดชบอร์ด',
     [
-      `สวัสดีคุณ ${name}`,
+      'สวัสดี',
       'มีคำขอตั้งรหัสผ่านใหม่สำหรับบัญชีของคุณ ลิงก์นี้ใช้ได้ภายใน 1 ชั่วโมงและใช้ได้ครั้งเดียว',
       'หากคุณไม่ได้ขอ ไม่ต้องทำอะไร รหัสผ่านเดิมยังใช้ได้',
       SIGNATURE,

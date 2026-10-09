@@ -105,18 +105,21 @@ describe('session and logout', () => {
 })
 
 describe('POST /api/auth/forgot-password', () => {
-  it('sends a reset link for non-disabled accounts and always answers ok', async () => {
-    for (const status of ['active', 'pending', 'unverified'] as const) {
+  it('sends a reset link only to confirmed (pending or active) accounts and always answers ok', async () => {
+    for (const status of ['active', 'pending'] as const) {
       vi.mocked(getAccountByEmail).mockResolvedValueOnce(accountRow({ status }))
       expect((await forgot(request('/api/auth/forgot-password', { body: { email: 'a@b.co' } }))).status).toBe(200)
     }
-    expect(sendPasswordResetEmail).toHaveBeenCalledTimes(3)
+    expect(sendPasswordResetEmail).toHaveBeenCalledTimes(2)
 
-    vi.mocked(getAccountByEmail).mockResolvedValueOnce(accountRow({ status: 'disabled' }))
-    expect((await forgot(request('/api/auth/forgot-password', { body: { email: 'a@b.co' } }))).status).toBe(200)
+    // unverified: ใครก็สมัครด้วยอีเมลคนอื่นได้ จึงห้ามส่งอีเมลไปหา (กันใช้เป็นช่องส่งสแปม)
+    for (const status of ['unverified', 'disabled'] as const) {
+      vi.mocked(getAccountByEmail).mockResolvedValueOnce(accountRow({ status }))
+      expect((await forgot(request('/api/auth/forgot-password', { body: { email: 'a@b.co' } }))).status).toBe(200)
+    }
     vi.mocked(getAccountByEmail).mockResolvedValueOnce(null)
     expect((await forgot(request('/api/auth/forgot-password', { body: { email: 'nobody@b.co' } }))).status).toBe(200)
-    expect(sendPasswordResetEmail).toHaveBeenCalledTimes(3)
+    expect(sendPasswordResetEmail).toHaveBeenCalledTimes(2)
   })
 })
 

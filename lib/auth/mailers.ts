@@ -33,7 +33,7 @@ export async function sendPasswordResetEmail(account: AccountRow, now = Date.now
     exp: now + RESET_PASSWORD_TTL_MS,
   })
   if (!url || !(await claimEmailSlot(account.id, now))) return false
-  return sendMail(resetPasswordMail(account.email, account.full_name, url))
+  return sendMail(resetPasswordMail(account.email, url))
 }
 
 /** แจ้ง root admin คนเดียวเมื่อมีผู้สมัครยืนยันอีเมลแล้ว */
@@ -47,7 +47,7 @@ export async function notifyRootOfSignup(account: AccountRow): Promise<boolean> 
 }
 
 export async function sendDecisionEmail(account: AccountRow, decision: 'approved' | 'rejected'): Promise<boolean> {
-  if (decision === 'rejected') return sendMail(rejectedMail(account.email, account.full_name))
+  if (decision === 'rejected') return sendMail(rejectedMail(account.email))
   const url = link('/login')
-  return url ? sendMail(approvedMail(account.email, account.full_name, account.role, url)) : false
+  return url ? sendMail(approvedMail(account.email, account.role, url)) : false
 }

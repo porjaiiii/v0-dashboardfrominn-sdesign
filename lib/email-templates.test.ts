@@ -23,18 +23,29 @@ describe('email templates', () => {
     expect(m.html).toContain('&lt;script&gt;')
   })
 
+  it('takes no sign-up text in any email sent to the account holder', () => {
+    // ชื่อมาจากคนที่กรอกฟอร์มสมัคร — อีเมลถึงเจ้าของบัญชีจึงไม่ใส่ชื่อ (กันใช้แทรกข้อความสแปม)
+    expect(resetPasswordMail.length).toBe(2)
+    expect(approvedMail.length).toBe(3)
+    expect(rejectedMail.length).toBe(1)
+    const reset = resetPasswordMail('a@b.co', 'https://dash.example/reset-password?token=abc')
+    expect(reset.text).toContain('สวัสดี')
+    expect(reset.text).toContain('https://dash.example/reset-password?token=abc')
+    expect(reset.html).toContain('href="https://dash.example/reset-password?token=abc"')
+  })
+
   it('says which role was approved', () => {
-    expect(approvedMail('a@b.co', 'สมชาย', 'admin', 'https://dash.example/login').text).toContain('แอดมิน')
-    expect(approvedMail('a@b.co', 'สมชาย', 'user', 'https://dash.example/login').text).toContain('ผู้ใช้')
+    expect(approvedMail('a@b.co', 'admin', 'https://dash.example/login').text).toContain('แอดมิน')
+    expect(approvedMail('a@b.co', 'user', 'https://dash.example/login').text).toContain('ผู้ใช้')
   })
 
   it('has a subject on every message', () => {
     const all = [
       verifyEmailMail('a@b.co', 'u'),
       newSignupMail('a@b.co', { name: 'x', email: 'y' }, 'u'),
-      approvedMail('a@b.co', 'x', 'user', 'u'),
-      rejectedMail('a@b.co', 'x'),
-      resetPasswordMail('a@b.co', 'x', 'u'),
+      approvedMail('a@b.co', 'user', 'u'),
+      rejectedMail('a@b.co'),
+      resetPasswordMail('a@b.co', 'u'),
     ]
     for (const m of all) expect(m.subject.length).toBeGreaterThan(0)
   })

@@ -56,6 +56,13 @@ describe('sendPasswordResetEmail', () => {
     const claims = verifyToken(SECRET, 'reset-password', tokenIn(sent()[0].text), NOW)
     expect(claims).toMatchObject({ sub: account.id, sva: Date.parse(account.sessions_valid_after), exp: NOW + 60 * 60 * 1000 })
   })
+
+  it('does not put the sign-up name in the reset email', async () => {
+    const account = accountRow({ full_name: 'ข้อความสแปม http://spam.example' })
+    await sendPasswordResetEmail(account, NOW)
+    expect(sent()[0].text).not.toContain(account.full_name)
+    expect(sent()[0].html).not.toContain('spam.example')
+  })
 })
 
 describe('notifyRootOfSignup', () => {
@@ -85,5 +92,12 @@ describe('sendDecisionEmail', () => {
     const [approved, rejected] = sent()
     expect(approved.text).toContain(`${ORIGIN}/login`)
     expect(rejected.text).not.toContain('http')
+  })
+
+  it('does not put the sign-up name in decision emails', async () => {
+    const account = accountRow({ full_name: 'ข้อความสแปม' })
+    await sendDecisionEmail(account, 'approved')
+    await sendDecisionEmail(account, 'rejected')
+    for (const m of sent()) expect(m.text).not.toContain('ข้อความสแปม')
   })
 })

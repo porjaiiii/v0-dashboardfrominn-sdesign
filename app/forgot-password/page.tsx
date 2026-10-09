@@ -32,7 +32,10 @@ export default function ForgotPasswordPage() {
       }
     >
       {sent ? (
-        <AuthNotice tone="info">ถ้ามีบัญชีที่ใช้อีเมลนี้ เราได้ส่งลิงก์ตั้งรหัสผ่านใหม่ไปแล้ว (ใช้ได้ภายใน 1 ชั่วโมง)</AuthNotice>
+        <AuthNotice tone="info">
+          ถ้ามีบัญชีที่ยืนยันอีเมลแล้วใช้อีเมลนี้ เราได้ส่งลิงก์ตั้งรหัสผ่านใหม่ไปแล้ว (ใช้ได้ภายใน 1 ชั่วโมง) — ถ้ายังไม่ได้ยืนยันอีเมล
+          ให้สมัครใหม่ด้วยอีเมลเดิมเพื่อตั้งรหัสผ่านใหม่และรับลิงก์ยืนยันอีกครั้ง
+        </AuthNotice>
       ) : (
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <AuthField label="อีเมล" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
